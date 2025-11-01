@@ -14,6 +14,9 @@
 """
 from hspylib.core.tools.commons import syserr, sysout, to_bool
 
+from contextlib import redirect_stderr, redirect_stdout
+import io
+import os
 import sys
 import unittest
 
@@ -35,13 +38,22 @@ class TestCommons(unittest.TestCase):
         self.assertFalse(to_bool("bad", {"good"}))
 
     def test_shouldNotFailIfReceivedNoneValueToSysoutOrSyserr(self) -> None:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+
         try:
-            sysout(None)
-            syserr(None)
-            sysout("")
-            syserr("")
+            with redirect_stdout(stdout_buffer):
+                sysout(None)
+                sysout("")
+            with redirect_stderr(stderr_buffer):
+                syserr(None)
+                syserr("")
         except TypeError as err:
             self.fail(f"sysout/syserr raised TypeError unexpectedly => {err}")
+
+        expected_output = os.linesep * 2
+        self.assertEqual(expected_output, stdout_buffer.getvalue())
+        self.assertEqual(expected_output, stderr_buffer.getvalue())
 
 
 if __name__ == "__main__":
