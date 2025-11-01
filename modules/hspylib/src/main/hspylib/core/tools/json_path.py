@@ -90,7 +90,7 @@ class JsonPath:
     # pylint: disable=too-many-branches,consider-using-f-string
     def select(self, root_element: JsonElement, search_path: str, fetch_parent: bool = False) -> JsonElement:
         """
-        Get the json element through it's path. Returned object is either [dict, list or unicode].
+        Get the json element through its path. Returned object is either [dict, list or unicode].
 
         Search patterns:
           1. elem1.elem2
