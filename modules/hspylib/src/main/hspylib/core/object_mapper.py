@@ -19,7 +19,7 @@ from hspylib.core.metaclass.singleton import Singleton
 from inspect import isclass
 from json import JSONDecodeError
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, Optional, Type, TypeAlias
+from typing import Any, Callable, Dict, Optional, Set, Type, TypeAlias
 
 import inspect
 import json
@@ -57,11 +57,34 @@ class ObjectMapper(metaclass=Singleton):
     @classmethod
     def _standard_converter(cls, type1: Any, type2: Type) -> Any:
         """Default conversion function using the object variables. Attribute names must be equal in both classes."""
-        attrs: Dict[str, Any] = {}
-        for field in vars(type1):
-            if hasattr(type2, field):
-                attrs[field] = getattr(type1, field)
+        source_attrs = vars(type1)
+        target_fields = cls._collect_supported_fields(type2)
+        attrs = {field: source_attrs[field] for field in target_fields if field in source_attrs}
         return type2(**attrs)
+
+    @classmethod
+    def _collect_supported_fields(cls, type2: Type) -> Set[str]:
+        """Collect all supported fields for the target type based on annotations and the constructor signature."""
+        target_fields: Set[str] = set()
+        try:
+            signature = inspect.signature(type2)
+        except (TypeError, ValueError):
+            signature = None
+
+        if signature:
+            for name, param in signature.parameters.items():
+                if name == "self":
+                    continue
+                if param.kind in (
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    inspect.Parameter.KEYWORD_ONLY,
+                ):
+                    target_fields.add(name)
+
+        annotations = getattr(type2, "__annotations__", {})
+        target_fields.update(annotations.keys())
+
+        return target_fields
 
     @classmethod
     def get_class_attributes(cls, clazz: Type):
