@@ -12,13 +12,27 @@
 
    Copyright·(c)·2024,·HSPyLib
 """
-from hspylib.core.tools.commons import syserr, sysout, to_bool
+from hspylib.core.tools.commons import class_attribute_names, syserr, sysout, to_bool
 
 import sys
 import unittest
 
 
 class TestCommons(unittest.TestCase):
+    def test_should_retrieve_class_attribute_names_without_instantiation(self) -> None:
+        class Dummy:
+            def __init__(self, foo: int = 1, bar: str = "baz"):
+                self.foo = foo
+                self.bar = bar
+
+        class RequiresArgs:
+            def __init__(self, foo: int, bar: str):  # pragma: no cover - defensive guard
+                raise AssertionError("Instantiation should not occur")
+
+        self.assertEqual(("foo", "bar"), class_attribute_names(Dummy))
+        self.assertEqual(("foo", "bar"), class_attribute_names(RequiresArgs))
+        self.assertIsNone(class_attribute_names(None))
+
     def test_should_return_proper_bool_value(self) -> None:
         self.assertFalse(to_bool(""))
         self.assertFalse(to_bool("0"))

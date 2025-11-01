@@ -181,10 +181,28 @@ def hook_exit_signals(handler: Callable) -> None:
 
 
 def class_attribute_names(clazz: Type) -> Optional[Tuple]:
-    """Retrieve all attribute names of the class
-    :param clazz: The class to retrieve the attribute names
+    """Retrieve the names of the attributes defined by a class.
+
+    The attribute names are inferred from the ``__init__`` signature without instantiating the class,
+    which allows classes that require initialization arguments to be inspected safely.
+
+    :param clazz: The class whose attribute names should be retrieved.
+    :return: A tuple containing the attribute names in the order they appear in ``__init__`` or ``None``
+        when ``clazz`` is ``None``.
     """
-    return tuple(vars(clazz()).keys()) if clazz else None
+    if not clazz:
+        return None
+
+    try:
+        signature = inspect.signature(clazz.__init__)
+    except (TypeError, ValueError):
+        return tuple()
+
+    return tuple(
+        name
+        for name, param in signature.parameters.items()
+        if name != "self" and param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    )
 
 
 def class_attribute_values(instance: dict) -> Optional[Tuple]:
