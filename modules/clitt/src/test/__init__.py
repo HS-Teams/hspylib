@@ -5,7 +5,10 @@
 # Package: test
 """Package initialization."""
 
-__all__ = [
-    'test_line_input'
-]
-__version__ = '0.9.145'
+from ._test_setup import setup_test_environment
+
+
+setup_test_environment()
+
+__all__ = ["test_line_input", "test_terminal"]
+__version__ = "0.9.145"

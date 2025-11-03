@@ -3,6 +3,15 @@
 
 import sys
 import unittest
+from pathlib import Path
+
+TEST_DIR = Path(__file__).resolve().parent
+if str(TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(TEST_DIR))
+
+from _test_setup import setup_test_environment
+
+setup_test_environment()
 
 from clitt.core.tui.line_input.keyboard_input import KeyboardInput
 from hspylib.core.tools.commons import dirname
