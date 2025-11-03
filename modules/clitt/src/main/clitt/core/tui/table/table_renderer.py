@@ -16,6 +16,7 @@ from clitt.core.term.screen import Screen
 from clitt.core.term.terminal import Terminal
 from clitt.core.tui.table.table_enums import TextAlignment, TextCase
 from clitt.core.tui.tui_preferences import TUIPreferences
+from collections.abc import Iterable as IterableABC
 from functools import cached_property, partial, reduce
 from hspylib.core.preconditions import check_argument
 from hspylib.core.tools.commons import file_is_not_empty
@@ -160,11 +161,17 @@ class TableRenderer:
         """
         self._cell_alignment = alignment
 
-    def set_cell_sizes(self, sizes: Tuple[int, ...]) -> None:
+    def set_cell_sizes(self, *sizes: int) -> None:
         """Render table based on a list of fixed sizes.
         :param sizes: the list of specific cell sizes.
         :return None
         """
+        if len(sizes) == 1 and isinstance(sizes[0], IterableABC) and not isinstance(sizes[0], (str, bytes)):
+            sizes = tuple(int(size) for size in sizes[0])
+        else:
+            sizes = tuple(int(size) for size in sizes)
+        if not sizes:
+            return
         max_cell_size = self.screen.columns if self._fits(sizes) else int(self.screen.columns / self.columns)
         for idx, size in enumerate(sizes[: self.columns]):
             self._cell_sizes[idx] = min(max_cell_size, max(self._min_cell_size, size))
