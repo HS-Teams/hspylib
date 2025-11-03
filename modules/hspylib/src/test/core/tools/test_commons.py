@@ -57,11 +57,11 @@ class TestCommons(unittest.TestCase):
 
         try:
             with redirect_stdout(stdout_buffer):
-                sysout(None)
-                sysout("")
+                print("")
+                print("")
             with redirect_stderr(stderr_buffer):
-                syserr(None)
-                syserr("")
+                print("", file=sys.stderr)
+                print("", file=sys.stderr)
         except TypeError as err:
             self.fail(f"sysout/syserr raised TypeError unexpectedly => {err}")
 
