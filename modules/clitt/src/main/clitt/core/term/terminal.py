@@ -170,9 +170,9 @@ class Terminal(metaclass=Singleton):
     def set_attributes(cls, **attrs) -> None:
         """Wrapper to set all terminal attributes at once."""
         # fmt: off
-        enable_echo = attrs['enable_echo']
-        auto_wrap = attrs['auto_wrap']
-        show_cursor = attrs['show_cursor']
+        enable_echo = attrs.get('enable_echo')
+        auto_wrap = attrs.get('auto_wrap')
+        show_cursor = attrs.get('show_cursor')
         # fmt: on
         if enable_echo is not None:
             cls.set_enable_echo(enable_echo)
