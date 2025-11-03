@@ -36,8 +36,12 @@ class GitTools:
     @staticmethod
     def unreleased() -> TerminalExecResult:
         """TODO"""
-        latest_tag = Terminal.shell_exec("git describe --tags --abbrev=0 HEAD^")
-        return Terminal.shell_exec(f"git log --oneline --pretty='format:%h %ad %s' --date=short '{latest_tag}'..HEAD")
+        latest_tag, *_ = Terminal.shell_exec("git describe --tags --abbrev=0 HEAD^")
+        tag_from = latest_tag.strip() if latest_tag else "HEAD^"
+        return Terminal.shell_exec(
+            "git log --oneline --pretty='format:%h %ad %s' --date=short "
+            f"'{tag_from}'..HEAD"
+        )
 
     @staticmethod
     def release_date(tag_name: str) -> TerminalExecResult:
