@@ -70,6 +70,7 @@ def _stub_cursor_and_screen() -> None:
                 self._alternate = enable
 
         screen_module.Screen = _Screen
+        screen_module.screen = screen_module.Screen()
         sys.modules["clitt.core.term.screen"] = screen_module
 
 
@@ -125,6 +126,36 @@ def setup_test_environment() -> None:
         text_module = ModuleType("rich.text")
         text_module.Text = _Text
         sys.modules["rich.text"] = text_module
+
+    if "toml" not in sys.modules:
+        toml_module = ModuleType("toml")
+
+        def _loads(*args, **kwargs):  # pragma: no cover - runtime stub
+            return {}
+
+        def _dumps(*args, **kwargs):  # pragma: no cover - runtime stub
+            return ""
+
+        toml_module.load = _loads
+        toml_module.loads = _loads
+        toml_module.dump = _dumps
+        toml_module.dumps = _dumps
+        sys.modules["toml"] = toml_module
+
+    if "yaml" not in sys.modules:
+        yaml_module = ModuleType("yaml")
+
+        def _yaml_load(*args, **kwargs):  # pragma: no cover - runtime stub
+            return {}
+
+        def _yaml_dump(*args, **kwargs):  # pragma: no cover - runtime stub
+            return ""
+
+        yaml_module.safe_load = _yaml_load
+        yaml_module.safe_dump = _yaml_dump
+        yaml_module.load = _yaml_load
+        yaml_module.dump = _yaml_dump
+        sys.modules["yaml"] = yaml_module
 
     if "getkey" not in sys.modules:
         class _Keys:  # pragma: no cover - runtime stub
