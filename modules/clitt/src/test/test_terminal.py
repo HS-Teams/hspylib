@@ -16,6 +16,7 @@ from _test_setup import setup_test_environment
 
 setup_test_environment()
 
+from clitt.core.exception.exceptions import NotATerminalError
 from clitt.core.term.screen import Screen
 from clitt.core.term.terminal import Terminal
 from hspylib.modules.application.exit_status import ExitStatus
@@ -24,11 +25,16 @@ from hspylib.modules.application.exit_status import ExitStatus
 class TestTerminalAttributes(unittest.TestCase):
     @patch.object(Terminal, "is_a_tty", return_value=False)
     def test_set_enable_echo_should_guard_when_not_tty(self, mock_is_tty):
-        with patch("clitt.core.term.terminal.os.popen") as mock_popen:
+        with patch("clitt.core.term.terminal.os.popen") as mock_popen, \
+            patch("clitt.core.term.terminal.log.warning") as mock_warning:
             Terminal.set_enable_echo(True)
 
         mock_is_tty.assert_called_once()
         mock_popen.assert_not_called()
+        mock_warning.assert_called_once()
+        warning_arg = mock_warning.call_args.args[0]
+        self.assertIsInstance(warning_arg, NotATerminalError)
+        self.assertIn("set_enable_echo:: Requires a terminal (TTY)", str(warning_arg))
 
     @patch.object(Terminal, "is_a_tty", return_value=True)
     def test_set_enable_echo_should_invoke_stty_when_tty(self, mock_is_tty):
@@ -42,11 +48,16 @@ class TestTerminalAttributes(unittest.TestCase):
 
     @patch.object(Terminal, "is_a_tty", return_value=False)
     def test_set_auto_wrap_should_guard_when_not_tty(self, mock_is_tty):
-        with patch("clitt.core.term.terminal.sysout") as mock_sysout:
+        with patch("clitt.core.term.terminal.sysout") as mock_sysout, \
+            patch("clitt.core.term.terminal.log.warning") as mock_warning:
             Terminal.set_auto_wrap(True)
 
         mock_is_tty.assert_called_once()
         mock_sysout.assert_not_called()
+        mock_warning.assert_called_once()
+        warning_arg = mock_warning.call_args.args[0]
+        self.assertIsInstance(warning_arg, NotATerminalError)
+        self.assertIn("set_auto_wrap:: Requires a terminal (TTY)", str(warning_arg))
 
     @patch.object(Terminal, "is_a_tty", return_value=True)
     def test_set_auto_wrap_should_emit_escape_sequence_when_tty(self, mock_is_tty):
@@ -60,11 +71,16 @@ class TestTerminalAttributes(unittest.TestCase):
 
     @patch.object(Terminal, "is_a_tty", return_value=False)
     def test_set_show_cursor_should_guard_when_not_tty(self, mock_is_tty):
-        with patch("clitt.core.term.terminal.sysout") as mock_sysout:
+        with patch("clitt.core.term.terminal.sysout") as mock_sysout, \
+            patch("clitt.core.term.terminal.log.warning") as mock_warning:
             Terminal.set_show_cursor(True)
 
         mock_is_tty.assert_called_once()
         mock_sysout.assert_not_called()
+        mock_warning.assert_called_once()
+        warning_arg = mock_warning.call_args.args[0]
+        self.assertIsInstance(warning_arg, NotATerminalError)
+        self.assertIn("set_show_cursor:: Requires a terminal (TTY)", str(warning_arg))
 
     @patch.object(Terminal, "is_a_tty", return_value=True)
     def test_set_show_cursor_should_emit_escape_sequence_when_tty(self, mock_is_tty):
