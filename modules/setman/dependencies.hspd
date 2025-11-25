@@ -14,4 +14,4 @@ package: hspylib-datasource
 package: hspylib-clitt
 
 /* Application dependencies */
-package: sqlparse, version: 0.5.1, mode: ge
+package: sqlparse, version: 0.5.3, mode: ge

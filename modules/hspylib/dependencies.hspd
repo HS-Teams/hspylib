@@ -13,9 +13,9 @@ package: get-key, version: 1.60.0, mode: ge
 package: retry2, version: 0.9.5, mode: ge
 package: requests, version: 2.32.3, mode: ge
 package: urllib3, version: 1.26.20, mode: ge
-package: keyring, version: 25.5.0, mode: ge
-package: pyparsing, version: 3.1.2, mode: ge
-package: pyperclip, version: 1.9.0, mode: ge
-package: PyYAML, version: 6.0.1, mode: ge
+package: keyring, version: 25.7.0, mode: ge
+package: pyparsing, version: 3.2.5, mode: ge
+package: pyperclip, version: 1.11.0, mode: ge
+package: PyYAML, version: 6.0.3, mode: ge
 package: toml, version: 0.10.2, mode: ge
-package: rich, version: 13.9.4, mode: ge
+package: rich, version: 14.2.0, mode: ge

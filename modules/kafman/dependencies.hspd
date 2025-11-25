@@ -16,9 +16,9 @@ package: hspylib-hqt
 
 package: requests, version: 2.32.3, mode: ge
 package: urllib3, version: 1.26.20, mode: ge
-package: PyQt5, version: 5.15.10, mode: ge
+package: PyQt5, version: 5.15.11, mode: ge
 package: PyQt5-stubs, version: 5.15.6.0, mode: ge
-package: confluent_kafka, version: 2.5.0, mode: ge
-package: fastavro, version: 1.9.5, mode: ge
-package: jsonschema, version: 4.23.0, mode: ge
+package: confluent_kafka, version: 2.12.2, mode: ge
+package: fastavro, version: 1.12.1, mode: ge
+package: jsonschema, version: 4.25.1, mode: ge
 package: avro-python3, version: 1.10.2, mode: ge

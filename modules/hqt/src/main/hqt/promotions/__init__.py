@@ -1,6 +1,6 @@
 # _*_ coding: utf-8 _*_
 #
-# hspylib-hqt v0.9.44
+# hspylib-hqt v0.9.45
 #
 # Package: main.hqt.promotions
 """Package initialization."""
@@ -16,4 +16,4 @@ __all__ = [
     'htableview', 
     'htoolbox'
 ]
-__version__ = '0.9.44'
+__version__ = '0.9.45'

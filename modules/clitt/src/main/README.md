@@ -8,7 +8,7 @@
 [![Gitter](https://badgen.net/badge/icon/gitter?icon=gitter&label)](https://gitter.im/hspylib/community)
 [![Donate](https://badgen.net/badge/paypal/donate/yellow)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=J5CDEFLF6M3H4)
 [![License](https://badgen.net/badge/license/MIT/gray)](LICENSE.md)
-[![Release](https://badgen.net/badge/release/v0.9.145/gray)](docs/CHANGELOG.md#unreleased)
+[![Release](https://badgen.net/badge/release/v0.9.146/gray)](docs/CHANGELOG.md#unreleased)
 [![build-and-test](https://github.com/yorevs/hspylib/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/yorevs/hspylib/actions/workflows/build-and-test.yml)
 
 HsPyLib is not just a Python library; it's a gateway to elevating your programming experience to new heights. Built on

@@ -15,7 +15,7 @@ package: hspylib-clitt
 
 /* Application dependencies */
 
-package: cryptography, version: 44.0.0, mode: ge
+package: cryptography, version: 46.0.3, mode: ge
 package: cryptocode, version: 0.1, mode: ge
-package: keyring, version: 25.5.0, mode: ge
-package: pyperclip, version: 1.9.0, mode: ge
+package: keyring, version: 25.7.0, mode: ge
+package: pyperclip, version: 1.11.0, mode: ge

@@ -13,6 +13,6 @@ package: hspylib
 
 /* Application dependencies */
 
-package: PyQt5, version: 5.15.10, mode: ge
+package: PyQt5, version: 5.15.11, mode: ge
 package: PyQt5-stubs, version: 5.15.6.0, mode: ge
-package: pyperclip, version: 1.9.0, mode: ge
+package: pyperclip, version: 1.11.0, mode: ge
