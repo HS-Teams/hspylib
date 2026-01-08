@@ -24,6 +24,8 @@ class TUIMenuUi(metaclass=Singleton):
     TUIMenuItem, TUIMenuAction or TUIMenuView.
     """
 
+    INSTANCE: 'TUIMenuUi'
+
     APP_TITLE = "Main Menu"
 
     # fmt: off
@@ -54,6 +56,11 @@ class TUIMenuUi(metaclass=Singleton):
         """
         return source.parent
 
+    @staticmethod
+    def quit(_) -> None:
+        """Break the menu flow by returning None."""
+        TUIMenuUi.INSTANCE._done = True
+
     def __init__(self, main_menu: TUIMenu, title: str = "Main Menu"):
         check_not_none(main_menu)
         super().__init__()
@@ -81,6 +88,8 @@ class TUIMenuUi(metaclass=Singleton):
                     self._done = True
             else:
                 self._done = True
+
+        Terminal.restore()
 
     def _prepare_render(self, auto_wrap: bool = True, show_cursor: bool = False, clear_screen: bool = True) -> None:
         """Prepare the screen for renderization."""

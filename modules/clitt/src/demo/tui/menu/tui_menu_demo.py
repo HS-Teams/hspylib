@@ -35,6 +35,8 @@ if __name__ == "__main__":
                 .with_action("Back", "Back to the previous menu") \
                     .on_trigger(TUIMenuUi.back) \
                 .then() \
+            .with_action('Quit') \
+                .on_trigger(TUIMenuUi.quit) \
             .then() \
         .build()
     # fmt: on
