@@ -1,6 +1,6 @@
 # _*_ coding: utf-8 _*_
 #
-# hspylib-clitt v0.9.148
+# hspylib-clitt v0.9.151
 #
 # Package: main.clitt.core.tui.menu
 """Package initialization."""
@@ -13,4 +13,4 @@ __all__ = [
     'tui_menu_ui', 
     'tui_menu_view'
 ]
-__version__ = '0.9.148'
+__version__ = '0.9.151'

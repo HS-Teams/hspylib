@@ -1,6 +1,6 @@
 # _*_ coding: utf-8 _*_
 #
-# hspylib-clitt v0.9.148
+# hspylib-clitt v0.9.151
 #
 # Package: test
 """Package initialization."""
@@ -21,4 +21,4 @@ __all__ = [
     'test_tui_component', 
     'test_tui_menu'
 ]
-__version__ = '0.9.148'
+__version__ = '0.9.151'

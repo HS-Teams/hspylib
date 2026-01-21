@@ -22,10 +22,9 @@ class TUIMenuAction(TUIMenu):
 
     def execute(self) -> Optional[TUIMenu]:
         self.render()
-        ret_menu = self._on_trigger(self._parent)
-        if not ret_menu:
-            self.wait_keystroke()
-        return ret_menu if ret_menu else self._default_trigger_cb(self)
+        if ret_menu := self._on_trigger(self._parent):
+            return ret_menu
+        return self._default_trigger_cb(self)
 
     def render(self) -> None:
         self.screen.cursor.restore()

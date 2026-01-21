@@ -50,6 +50,7 @@ class FieldBuilder:
     def __init__(self, parent: Any):
         self._parent = parent
         self._label = "Label"
+        self._tooltip = None
         self._dest = None
         self._itype = InputType.TEXT
         self._access_type = AccessType.READ_WRITE
@@ -59,6 +60,10 @@ class FieldBuilder:
 
     def label(self, label: str) -> "FieldBuilder":
         self._label = label
+        return self
+
+    def tooltip(self, tooltip: str) -> "FieldBuilder":
+        self._tooltip = tooltip
         return self
 
     def dest(self, dest: str) -> "FieldBuilder":
@@ -111,6 +116,7 @@ class FieldBuilder:
                 self._value,
                 self._validator[0],
                 self._validator[1],
+                self._tooltip
             )
         )
 

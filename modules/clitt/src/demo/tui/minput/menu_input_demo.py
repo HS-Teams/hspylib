@@ -20,19 +20,23 @@ if __name__ == "__main__":
     form_fields = MenuInput.builder() \
         .field() \
             .label('letters') \
+            .tooltip("Just Letters") \
             .validator(InputValidator.letters()) \
             .build() \
         .field() \
             .label('word') \
+            .tooltip("Just a Word") \
             .validator(InputValidator.words()) \
             .build() \
         .field() \
             .label('number') \
-            .validator(InputValidator.numbers()) \
+            .tooltip("Just Numbers") \
+            .validator(InputValidator.numbers(), lambda f: int(f.value) > 80) \
             .min_max_length(1, 4) \
             .build() \
         .field() \
             .label('anything') \
+            .tooltip("This can be anything") \
             .build() \
         .field() \
             .label('masked') \
