@@ -207,7 +207,7 @@ class Settings:
         :return: A list of settings formatted as environment variable exports.
         """
         data = self.search(name, SettingsType.ENVIRONMENT)
-        return list(map(lambda s: s.to_env_export, data))
+        return list(map(lambda s: s.to_env_export(), data))
 
     def _create_db(self) -> bool:
         """Create the settings SQLite DB file.
