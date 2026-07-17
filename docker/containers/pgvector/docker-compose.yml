@@ -1,0 +1,30 @@
+services:
+
+  pgvector-db:
+    image: pgvector/pgvector:pg16
+    container_name: pgvector-db
+    hostname: pgvector-db
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+      interval: 10s
+      timeout: 60s
+      retries: 3
+    environment:
+      POSTGRES_DB: homeselect
+      POSTGRES_USER: ${PGUSER:-homeselect}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-homeselect_admin}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    expose:
+      - 5432
+    volumes:
+      - pgvector-db-data:/var/lib/postgresql/data
+    networks:
+      - esnet
+
+networks:
+  esnet:
+
+volumes:
+  pgvector-db-data:
