@@ -1,21 +1,27 @@
 services:
-
   redis-server:
-    image: grokzen/redis-cluster:latest
+    image: redis:7-alpine
     container_name: redis-server
-    hostname: redis-server
-    restart: on-failure
-    healthcheck:
-      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
-      interval: 10s
-      timeout: 60s
-      retries: 3
+    restart: unless-stopped
+
     ports:
       - "6379:6379"
-    command: redis-server --save 20 1 --loglevel warning --requirepass password
+
+    command: >
+      redis-server
+      --requirepass password
+      --save 20 1
+      --loglevel warning
+
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a password ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
     volumes:
-      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
       - ./data/redis:/data
+
     networks:
       - esnet
 
