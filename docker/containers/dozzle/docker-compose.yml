@@ -1,0 +1,20 @@
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    hostname: dozzle
+    restart: unless-stopped
+    ports:
+      - "${DOZZLE_BIND_ADDRESS:-127.0.0.1}:${DOZZLE_PORT:-8188}:8080"
+    healthcheck:
+      test: [ "CMD", "/dozzle", "healthcheck" ]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dozzle-data:/data
+
+volumes:
+  dozzle-data:
