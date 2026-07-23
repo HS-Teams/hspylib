@@ -30,7 +30,7 @@ from kafman.core.schema.avro.field.map_field import MapField
 from kafman.core.schema.avro.field.union_field import UnionField
 from kafman.core.schema.json.json_schema import JsonSchema
 from kafman.core.schema.schema_registry import SchemaRegistry
-from kafman.core.schema.widget_utils import WidgetUtils
+from kafman.core.schema.widget_utils import RecordArrayEditor, WidgetUtils
 from kafman.core.statistics_worker import StatisticsWorker
 from kafman.views.dialogs.settings_dialog import SettingsDialog
 from kafman.views.main_qt_view import MainQtView
@@ -42,6 +42,8 @@ from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QLabel,
+    QLineEdit,
+    QPushButton,
     QSpinBox,
     QStyle,
     QStyleOptionSpinBox,
@@ -160,6 +162,171 @@ class SchemaFormTest(unittest.TestCase):
             schema = AvroSchema(schema_file.name, "http://localhost:8081")
             payload = self._form_payload(schema)
         self.assertEqual({"nested": {"text": "seed"}}, payload)
+
+    def test_nested_avro_record_array_is_built_as_typed_records(self) -> None:
+        content = {
+            "type": "record",
+            "name": "Envelope",
+            "fields": [
+                {
+                    "name": "group",
+                    "type": {
+                        "type": "record",
+                        "name": "Group",
+                        "fields": [
+                            {
+                                "name": "sizes",
+                                "type": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "record",
+                                        "name": "Size",
+                                        "fields": [
+                                            {"name": "id", "type": "string"},
+                                            {"name": "position", "type": "int"},
+                                        ],
+                                    },
+                                },
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".avsc", encoding="utf-8"
+        ) as schema_file:
+            json.dump(content, schema_file)
+            schema_file.flush()
+            schema = AvroSchema(schema_file.name, "http://localhost:8081")
+            stack = HStackedWidget()
+            stack.set_speed(0)
+            schema.create_schema_form_widget(stack)
+            area = FormArea(None)
+            area.setWidget(stack)
+
+            root_pane = stack.widget(0)
+            self.assertIsInstance(root_pane, FormPane)
+            assert isinstance(root_pane, FormPane)
+            group_field = root_pane.schema_field("group")
+            assert group_field is not None and group_field.widget is not None
+            build_group = group_field.widget.input_widget
+            self.assertIsInstance(build_group, QPushButton)
+            assert isinstance(build_group, QPushButton)
+            self.assertIn("Build record", build_group.text())
+            build_group.click()
+            self.app.processEvents()
+
+            group_pane = stack.currentWidget()
+            self.assertIsInstance(group_pane, FormPane)
+            assert isinstance(group_pane, FormPane)
+            sizes_field = group_pane.schema_field("sizes")
+            assert sizes_field is not None and sizes_field.widget is not None
+            record_editor = sizes_field.widget.input_widget
+            self.assertIsInstance(record_editor, RecordArrayEditor)
+            assert isinstance(record_editor, RecordArrayEditor)
+            self.assertEqual("Build record", record_editor.build_button.text())
+
+            for identifier, position in (("M", 1), ("L", 2)):
+                record_editor.build_button.click()
+                self.app.processEvents()
+                item_pane = stack.currentWidget()
+                self.assertIsInstance(item_pane, FormPane)
+                assert isinstance(item_pane, FormPane)
+                id_field = item_pane.schema_field("id")
+                position_field = item_pane.schema_field("position")
+                assert id_field is not None and id_field.widget is not None
+                assert position_field is not None and position_field.widget is not None
+                id_widget = id_field.widget.input_widget
+                position_widget = position_field.widget.input_widget
+                self.assertIsInstance(id_widget, QLineEdit)
+                self.assertIsInstance(position_widget, QSpinBox)
+                assert isinstance(id_widget, QLineEdit)
+                assert isinstance(position_widget, QSpinBox)
+                id_widget.setText(identifier)
+                position_widget.setValue(position)
+                add_record = next(
+                    button
+                    for button in item_pane.findChildren(QPushButton)
+                    if button.text() == "Add record"
+                )
+                add_record.click()
+                self.app.processEvents()
+
+            payload = json.loads(area.values())
+            schema.validate(payload)
+
+        self.assertEqual(
+            {
+                "group": {
+                    "sizes": [
+                        {"id": "M", "position": 1},
+                        {"id": "L", "position": 2},
+                    ]
+                }
+            },
+            payload,
+        )
+
+    def test_json_array_of_objects_uses_record_builder(self) -> None:
+        content = {
+            "type": "object",
+            "title": "Rows",
+            "required": ["rows"],
+            "properties": {
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id"],
+                        "properties": {"id": {"type": "string"}},
+                    },
+                }
+            },
+        }
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", encoding="utf-8"
+        ) as schema_file:
+            json.dump(content, schema_file)
+            schema_file.flush()
+            schema = JsonSchema(schema_file.name, "http://localhost:8081")
+            stack = HStackedWidget()
+            stack.set_speed(0)
+            schema.create_schema_form_widget(stack)
+            area = FormArea(None)
+            area.setWidget(stack)
+
+            root_pane = stack.widget(0)
+            self.assertIsInstance(root_pane, FormPane)
+            assert isinstance(root_pane, FormPane)
+            rows_field = root_pane.schema_field("rows")
+            assert rows_field is not None and rows_field.widget is not None
+            record_editor = rows_field.widget.input_widget
+            self.assertIsInstance(record_editor, RecordArrayEditor)
+            assert isinstance(record_editor, RecordArrayEditor)
+            record_editor.build_button.click()
+            self.app.processEvents()
+
+            item_pane = stack.currentWidget()
+            self.assertIsInstance(item_pane, FormPane)
+            assert isinstance(item_pane, FormPane)
+            id_field = item_pane.schema_field("id")
+            assert id_field is not None and id_field.widget is not None
+            id_widget = id_field.widget.input_widget
+            self.assertIsInstance(id_widget, QLineEdit)
+            assert isinstance(id_widget, QLineEdit)
+            id_widget.setText("row-1")
+            next(
+                button
+                for button in item_pane.findChildren(QPushButton)
+                if button.text() == "Add record"
+            ).click()
+            self.app.processEvents()
+
+            payload = json.loads(area.values())
+            schema.validate(payload)
+
+        self.assertEqual({"rows": [{"id": "row-1"}]}, payload)
 
     def test_json_references_create_nested_forms(self) -> None:
         schema = JsonSchema(

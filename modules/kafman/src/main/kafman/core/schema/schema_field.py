@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from kafman.core.schema.avro.avro_type import AvroType
 from kafman.core.schema.json.json_type import JsonType
@@ -44,6 +44,7 @@ class SchemaField(ABC):
         self.symbols: list[Any] = []
         self.widget: Optional[FieldEditor] = None
         self.nested_value: dict[str, Any] = {}
+        self._value_provider: Optional[Callable[[], InputValue]] = None
         self.apply_default(default)
 
     def apply_default(self, default: Any) -> None:
@@ -79,6 +80,10 @@ class SchemaField(ABC):
         )
         return self.widget
 
+    def set_value_provider(self, provider: Callable[[], InputValue]) -> None:
+        """Use a nested form or composite editor as this field's value source."""
+        self._value_provider = provider
+
     def value(self) -> InputValue:
         if self.widget is None:
             return MISSING
@@ -86,6 +91,8 @@ class SchemaField(ABC):
             return MISSING
         if self.widget.mode() == FieldEditor.NULL:
             return None
+        if self._value_provider is not None:
+            return self._value_provider()
         if self.a_type.value in {"record", "object"}:
             return self.nested_value
         return WidgetUtils.editor_value(

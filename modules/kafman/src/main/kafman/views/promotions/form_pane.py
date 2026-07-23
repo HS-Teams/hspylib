@@ -22,6 +22,7 @@ from kafman.core.schema.widget_utils import (
     FieldEditor,
     InputWidget,
     MISSING,
+    RecordArrayEditor,
     WidgetUtils,
 )
 from PyQt6.QtCore import Qt
@@ -142,14 +143,62 @@ class FormPane(HFrame):
     ) -> None:
         """TODO"""
 
-        fill_button = QPushButton(FormIcons.ARROW_RIGHT.value + " Fill")
+        fill_button = QPushButton(FormIcons.ARROW_RIGHT.value + " Build record")
         fill_button.clicked.connect(lambda: form_stack.slide_to_index(index))
-        WidgetUtils.setup_widget_commons(fill_button, "Click to fill the form")
-        fill_button.setMaximumWidth(100)
+        WidgetUtils.setup_widget_commons(
+            fill_button, "Open the schema form for this record"
+        )
+        fill_button.setMaximumWidth(160)
         fill_button.setDefault(False)
         fill_button.setAutoDefault(False)
         editor = field.wrap_nested_widget(fill_button)
         self.add_field(field_name, label, req_label, editor, row, field)
+
+    def add_record_array(
+        self,
+        field_name: str,
+        label: QLabel,
+        req_label: QLabel,
+        row: int,
+        index: int,
+        form_stack: HStackedWidget,
+        field: SchemaField,
+        item_pane: "FormPane",
+    ) -> None:
+        """Add an array editor backed by a reusable record item form."""
+        record_editor = RecordArrayEditor(default=field.default, tooltip=field.doc)
+        record_editor.buildRequested.connect(lambda: form_stack.slide_to_index(index))
+        editor = field.wrap_nested_widget(record_editor)
+        self.add_field(field_name, label, req_label, editor, row, field)
+        item_pane.add_record_button(form_stack.indexOf(self), form_stack, record_editor)
+
+    def add_record_button(
+        self,
+        back_index: int,
+        form_stack: HStackedWidget,
+        record_editor: RecordArrayEditor,
+    ) -> None:
+        """Commit the current nested form values as one array record."""
+        row = self._grid.rowCount()
+        add_button = QPushButton("Add record")
+
+        def add_record() -> None:
+            record_editor.add_record(self.values())
+            form_stack.slide_to_index(back_index)
+
+        add_button.clicked.connect(add_record)
+        WidgetUtils.setup_widget_commons(
+            add_button, "Add these values to the record array"
+        )
+        add_button.setMaximumWidth(140)
+        add_button.setDefault(False)
+        add_button.setAutoDefault(False)
+        self._grid.addWidget(
+            add_button,
+            row,
+            self.FIELD_COLUMN,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
 
     def add_back_button(self, back_index: int, form_stack: HStackedWidget) -> None:
         """TODO"""
@@ -170,3 +219,9 @@ class FormPane(HFrame):
             self._fields[field_name] = field.value()
 
         return self._fields
+
+    def values(self) -> dict[str, Any]:
+        """Return only fields that the schema form has not explicitly omitted."""
+        return {
+            key: value for key, value in self.fields().items() if value is not MISSING
+        }

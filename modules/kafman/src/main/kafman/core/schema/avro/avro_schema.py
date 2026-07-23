@@ -23,6 +23,7 @@ from hspylib.core.preconditions import check_not_none
 from kafman.core.consumer.consumer_config import ConsumerConfig
 from kafman.core.producer.producer_config import ProducerConfig
 from kafman.core.schema.avro.field.field_factory import FieldFactory
+from kafman.core.schema.avro.field.array_field import ArrayField
 from kafman.core.schema.avro.field.record_field import RecordField
 from kafman.core.schema.kafka_schema import KafkaSchema
 from kafman.core.schema.schema_field import SchemaField
@@ -33,6 +34,7 @@ from typing import Any, List, Optional
 import avro.schema as schema_parser
 import base64
 import json
+from avro.schema import RecordSchema
 from decimal import Decimal
 from pathlib import Path
 
@@ -147,8 +149,36 @@ class AvroSchema(KafkaSchema):
                     record_fields,
                     _visited | {field.record_name},
                 )
+                child_pane = form_stack.widget(child_index)
+                assert isinstance(child_pane, FormPane)
+                field.set_value_provider(child_pane.values)
                 form_pane.add_form_button(
                     field.name, label, req_label, row, child_index, form_stack, field
+                )
+            elif (
+                isinstance(field, ArrayField)
+                and isinstance(field.items, RecordSchema)
+                and field.items.fullname not in _visited
+            ):
+                item_fields = FieldFactory.create_schema_fields(field.items.fields)
+                child_index = self.create_schema_form_widget(
+                    form_stack,
+                    form_pane,
+                    f"{field.name} item",
+                    item_fields,
+                    _visited | {field.items.fullname},
+                )
+                child_pane = form_stack.widget(child_index)
+                assert isinstance(child_pane, FormPane)
+                form_pane.add_record_array(
+                    field.name,
+                    label,
+                    req_label,
+                    row,
+                    child_index,
+                    form_stack,
+                    field,
+                    child_pane,
                 )
             else:
                 form_pane.add_field(field.name, label, req_label, widget, row, field)

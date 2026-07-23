@@ -8,12 +8,13 @@ from __future__ import annotations
 import base64
 import json
 from abc import ABC
+from copy import deepcopy
 from typing import Any, Iterable, Optional, TypeAlias
 
 from hqt.promotions.hcombobox import HComboBox
 from hqt.promotions.hlistwidget import HListWidget
 from hspylib.core.exception.exceptions import InvalidStateError
-from PyQt6.QtCore import QRegularExpression, Qt
+from PyQt6.QtCore import QRegularExpression, Qt, pyqtSignal
 from PyQt6.QtGui import QRegularExpressionValidator
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -23,9 +24,12 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidgetItem,
     QPlainTextEdit,
+    QPushButton,
     QSizePolicy,
     QSpinBox,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -42,6 +46,89 @@ WidgetType: TypeAlias = type[QWidget]
 CONTROL_MIN_HEIGHT = 36
 MULTILINE_MIN_HEIGHT = 96
 MULTILINE_MAX_HEIGHT = 140
+
+
+class RecordArrayEditor(QWidget):
+    """Store typed record values built by a nested schema form."""
+
+    buildRequested = pyqtSignal()
+
+    def __init__(
+        self,
+        *,
+        default: Any = MISSING,
+        tooltip: Optional[str] = None,
+        parent: Optional[QWidget] = None,
+    ):
+        super().__init__(parent)
+        self._records = HListWidget(self)
+        self._build_button = QPushButton("Build record", self)
+        self._remove_button = QPushButton("Remove selected", self)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        layout.addWidget(self._records, 1)
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
+        actions.addWidget(self._build_button)
+        actions.addWidget(self._remove_button)
+        actions.addStretch(1)
+        layout.addLayout(actions)
+
+        self._records.set_editable(False)
+        self._records.setSelectionMode(HListWidget.SelectionMode.ExtendedSelection)
+        self._records.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self._records.setToolTip(tooltip or "")
+        self._build_button.setToolTip("Open the schema form for a new record")
+        self._remove_button.setToolTip("Remove the selected records")
+        self._build_button.setAutoDefault(False)
+        self._build_button.setDefault(False)
+        self._remove_button.setAutoDefault(False)
+        self._remove_button.setDefault(False)
+        self._build_button.clicked.connect(self.buildRequested.emit)
+        self._remove_button.clicked.connect(self.remove_selected)
+
+        for record in default if isinstance(default, list) else []:
+            if isinstance(record, dict):
+                self.add_record(record)
+
+        self.setToolTip(tooltip or "")
+        self.setMinimumHeight(MULTILINE_MIN_HEIGHT)
+        self.setMaximumHeight(MULTILINE_MAX_HEIGHT)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._sync_actions()
+        self._records.itemSelectionChanged.connect(self._sync_actions)
+
+    @property
+    def build_button(self) -> QPushButton:
+        return self._build_button
+
+    def add_record(self, record: dict[str, Any]) -> None:
+        """Append a record without converting its values to editable text."""
+        item = QListWidgetItem(json.dumps(record, sort_keys=True, default=str))
+        item.setData(Qt.ItemDataRole.UserRole, deepcopy(record))
+        item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+        self._records.addItem(item)
+        self._sync_actions()
+
+    def records(self) -> list[dict[str, Any]]:
+        return [
+            deepcopy(self._records.item(row).data(Qt.ItemDataRole.UserRole))
+            for row in range(self._records.count())
+        ]
+
+    def remove_selected(self) -> None:
+        rows = sorted(
+            (index.row() for index in self._records.selectedIndexes()), reverse=True
+        )
+        for row in rows:
+            self._records.del_item(row)
+        self._sync_actions()
+
+    def _sync_actions(self) -> None:
+        self._remove_button.setEnabled(bool(self._records.selectedIndexes()))
 
 
 class FieldEditor(QWidget):
@@ -140,7 +227,9 @@ class FieldEditor(QWidget):
             self._mode.setCurrentIndex(index)
 
     def is_multiline(self) -> bool:
-        return isinstance(self.input_widget, (HListWidget, QPlainTextEdit))
+        return isinstance(
+            self.input_widget, (HListWidget, QPlainTextEdit, RecordArrayEditor)
+        )
 
     def _sync_enabled(self) -> None:
         if self.input_widget is not None:
@@ -400,6 +489,8 @@ class WidgetUtils(ABC):
         if isinstance(widget, HComboBox):
             data = widget.currentData()
             return widget.currentText() if data is None else data
+        if isinstance(widget, RecordArrayEditor):
+            return widget.records()
         if isinstance(widget, HListWidget):
             return [cls.coerce_value(value, item_type) for value in widget.as_list()]
         if isinstance(widget, QCheckBox):

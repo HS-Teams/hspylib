@@ -22,6 +22,8 @@ from jsonschema import validate as validate_schema
 from kafman.core.consumer.consumer_config import ConsumerConfig
 from kafman.core.producer.producer_config import ProducerConfig
 from kafman.core.schema.json.json_parser import JsonParser
+from kafman.core.schema.json.json_type import JsonType
+from kafman.core.schema.json.property.array_property import ArrayProperty
 from kafman.core.schema.json.property.object_property import ObjectProperty
 from kafman.core.schema.json.property.property_factory import PropertyFactory
 from kafman.core.schema.kafka_schema import KafkaSchema
@@ -130,8 +132,41 @@ class JsonSchema(KafkaSchema):
                 child_index = self.create_schema_form_widget(
                     form_stack, form_pane, field.name, object_props
                 )
+                child_pane = form_stack.widget(child_index)
+                assert isinstance(child_pane, FormPane)
+                field.set_value_provider(child_pane.values)
                 form_pane.add_form_button(
                     field.name, label, req_label, row, child_index, form_stack, field
+                )
+            elif (
+                isinstance(field, ArrayProperty)
+                and field.items
+                and JsonParser._type_name(field.items)[0] == JsonType.OBJECT
+            ):
+                item_properties = JsonParser._parse_properties(
+                    field.items.get("properties", {}),
+                    list(field.items.get("required", [])),
+                    self._parsed.raw,
+                    JsonParser._load_catalog(self._filepath),
+                )
+                item_fields = PropertyFactory.create_schema_fields(item_properties)
+                child_index = self.create_schema_form_widget(
+                    form_stack,
+                    form_pane,
+                    f"{field.name} item",
+                    item_fields,
+                )
+                child_pane = form_stack.widget(child_index)
+                assert isinstance(child_pane, FormPane)
+                form_pane.add_record_array(
+                    field.name,
+                    label,
+                    req_label,
+                    row,
+                    child_index,
+                    form_stack,
+                    field,
+                    child_pane,
                 )
             else:
                 form_pane.add_field(field.name, label, req_label, widget, row, field)
