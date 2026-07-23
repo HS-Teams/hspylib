@@ -2,26 +2,28 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.views.promotions
-      @file: form_area.py
-   @created: Wed, 8 Jun 2022
-    @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: "https://github.com/yorevs/hspylib")
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.views.promotions
+   @file: form_area.py
+@created: Wed, 8 Jun 2022
+ @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: "https://github.com/yorevs/hspylib")
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
-from collections import defaultdict
 from hqt.promotions.hstacked_widget import HStackedWidget
 from hspylib.core.preconditions import check_argument
-from kafman.core.schema.widget_utils import InputValue
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QAbstractScrollArea, QFrame, QScrollArea, QWidget
-from typing import Union
+from kafman.core.schema.widget_utils import InputValue, MISSING
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QAbstractScrollArea, QFrame, QScrollArea, QWidget
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 import json
+
+if TYPE_CHECKING:
+    from kafman.views.promotions.form_pane import FormPane
 
 
 class FormArea(QScrollArea):
@@ -31,40 +33,50 @@ class FormArea(QScrollArea):
 
     @staticmethod
     def _is_not_empty(value: Union[InputValue, dict]) -> bool:
-        if isinstance(value, (list, dict)):
-            return True
-        return str(value) != ""
+        return value is not MISSING
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: Optional[QWidget]):
         super().__init__(parent)
-        self._form = None
+        self._form: Optional[QWidget] = None
         self.setWidgetResizable(True)
-        self.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
-        self.setFrameStyle(QFrame.NoFrame | QFrame.Plain)
+        self.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        self.setFrameStyle(int(QFrame.Shape.NoFrame) | int(QFrame.Shadow.Plain))
 
-    def setWidget(self, widget: QWidget) -> None:
+    def setWidget(self, widget: Optional[QWidget]) -> None:
         if self._form is not None:
-            check_argument(isinstance(widget, HStackedWidget), "Only HStackedWidget type instances are accepted")
+            check_argument(
+                isinstance(widget, HStackedWidget),
+                "Only HStackedWidget type instances are accepted",
+            )
         super().setWidget(widget)
         self._form = widget
 
-    def get_form(self) -> HStackedWidget:
+    def get_form(self) -> Optional[QWidget]:
         """TODO"""
         return self._form
 
     def values(self) -> str:
         """TODO"""
 
-        root = defaultdict()
-        current = None
-        for pane in self._form.widgets():
-            # Filter out empty values
+        form = self._form
+        check_argument(
+            isinstance(form, HStackedWidget), "A form stack has not been assigned"
+        )
+        assert isinstance(form, HStackedWidget)
+        root = {}
+        for widget in form.widgets():
+            pane = cast("FormPane", widget)
             fields = {k: v for k, v in pane.fields().items() if self._is_not_empty(v)}
-            if current is None:
-                current = root
+            parent = pane.parent_form()
+            if parent is None:
                 root.update(fields)
             else:
-                current = pane[pane.parent_name()].fields()[pane.name()]
-                current.update(fields)
+                parent_field = parent.schema_field(pane.name())
+                if parent_field is None:
+                    continue
+                parent_value = parent_field.value()
+                if parent_value is MISSING or parent_value is None:
+                    continue
+                parent_field.nested_value.update(fields)
 
         return json.dumps(root, indent=2)

@@ -2,16 +2,19 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.core.schema
-      @file: registry_subject.py
-   @created: Thu, 5 Aug 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.core.schema
+   @file: registry_subject.py
+@created: Thu, 5 Aug 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
+
+from typing import Any, Optional
+
 import json
 
 
@@ -19,7 +22,12 @@ class RegistrySubject:
     """Represent a schema registry subject"""
 
     def __init__(
-        self, schema_type: str = None, subject: str = None, registry_id: int = 0, version: int = 0, schema: dict = None
+        self,
+        schema_type: Optional[str] = None,
+        subject: Optional[str] = None,
+        registry_id: int = 0,
+        version: int = 0,
+        schema: Optional[dict[str, Any]] = None,
     ):
         self.schema_type = schema_type
         self.subject = subject

@@ -2,24 +2,23 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.core.consumer
-      @file: consumer_worker.py
-   @created: Wed, 30 Jun 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.core.consumer
+   @file: consumer_worker.py
+@created: Wed, 30 Jun 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
-from confluent_kafka import DeserializingConsumer
+from confluent_kafka import DeserializingConsumer, TopicPartition
 from confluent_kafka.error import ConsumeError, ValueDeserializationError
 from hspylib.core.tools.commons import syserr
 from kafman.core.schema.kafka_schema import KafkaSchema
-from PyQt5.QtCore import pyqtSignal, QThread
-from time import sleep
-from typing import Any, Dict, List
+from PyQt6.QtCore import pyqtSignal, QThread
+from typing import Any, Dict, List, Optional
 
 import threading
 
@@ -39,10 +38,9 @@ class ConsumerWorker(QThread):
         self.setObjectName("kafka-consumer")
         self._started = False
         self._poll_interval = poll_interval
-        self._consumer = None
-        self._worker_thread = None
-        self._schema = None
-        self.start()
+        self._consumer: Optional[DeserializingConsumer] = None
+        self._worker_thread: Optional[threading.Thread] = None
+        self._schema: Optional[KafkaSchema] = None
 
     def start_consumer(self, settings: Dict[str, Any], schema: KafkaSchema) -> None:
         """Start the Kafka consumer agent.
@@ -58,60 +56,66 @@ class ConsumerWorker(QThread):
         """Stop the Kafka consumer agent"""
         if self._consumer is not None:
             self._started = False
-            del self._consumer
-            self._consumer = None
-            self._worker_thread = None
+            if self._worker_thread and self._worker_thread.is_alive():
+                self._worker_thread.join(timeout=max(1.0, self._poll_interval * 3))
+            elif self._consumer is not None:
+                self._consumer.close()
+                self._consumer = None
+                self._schema = None
             self._schema = None
 
     def consume(self, topics: List[str]) -> None:
         """Start the consumer thread."""
         if self._started:
-            self._worker_thread = threading.Thread(target=self._consume, args=(topics,))
-            self._worker_thread.name = f"kafka-consumer-worker-{hash(self)}"
-            self._worker_thread.daemon = True
-            self._worker_thread.start()
+            worker_thread = threading.Thread(target=self._consume, args=(topics,))
+            worker_thread.name = f"kafka-consumer-worker-{hash(self)}"
+            worker_thread.daemon = True
+            self._worker_thread = worker_thread
+            worker_thread.start()
 
     def is_started(self) -> bool:
         """Whether the consumer is started or not."""
         return self._started
 
-    def run(self) -> None:
-        while not self.isFinished():
-            sleep(self._poll_interval)
+    def commit(self, topic: str, partition: int, offset: int) -> None:
+        """Commit the next offset for one exact topic partition."""
+        if self._consumer is not None:
+            topic_partition = TopicPartition(topic, partition, offset + 1)
+            self._consumer.commit(offsets=[topic_partition], asynchronous=False)
 
-    def commit(self, offset: int):
-        """TODO"""
-        topic_partitions = self._consumer.assignment()
-        for tp in topic_partitions:
-            tp.offset = offset + 1
-            self._consumer.commit(offsets=topic_partitions, asynchronous=False)
-
-    def schema(self) -> KafkaSchema:
+    def schema(self) -> Optional[KafkaSchema]:
         """TODO"""
         return self._schema
 
     def _consume(self, topics: List[str]) -> None:
         """Consume messages from the selected Kafka topics."""
+        consumer = self._consumer
+        if consumer is None:
+            return
         try:
-            self._consumer.subscribe(topics)
-            while self._started and self._consumer is not None:
+            consumer.subscribe(topics)
+            while self._started:
                 try:
-                    message = self._consumer.poll(self._poll_interval)
+                    message = consumer.poll(self._poll_interval)
                     if message is None:
                         continue
                     if message.error():
                         self.messageFailed.emit(str(message.error()))
                     else:
                         self.messageConsumed.emit(
-                            message.topic(), message.partition(), message.offset(), str(message.value())
+                            message.topic(),
+                            message.partition(),
+                            message.offset(),
+                            str(message.value()),
                         )
                 except (ValueDeserializationError, ConsumeError) as err:
                     self.messageFailed.emit(str(err))
         except KeyboardInterrupt:
             syserr("Keyboard interrupted")
         finally:
-            if self._consumer:
-                self._consumer.close()
-                del self._consumer
+            consumer.close()
+            if self._consumer is consumer:
                 self._consumer = None
-                self._worker_thread = None
+            self._worker_thread = None
+            self._schema = None
+            self._started = False

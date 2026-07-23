@@ -2,29 +2,33 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.views.promotions
-      @file: form_pane.py
-   @created: Wed, 8 Jun 2022
-    @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: "https://github.com/yorevs/hspylib")
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.views.promotions
+   @file: form_pane.py
+@created: Wed, 8 Jun 2022
+ @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: "https://github.com/yorevs/hspylib")
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
 from clitt.core.icons.font_awesome.form_icons import FormIcons
-from collections import defaultdict
-from hqt.promotions.hcombobox import HComboBox
 from hqt.promotions.hframe import HFrame
-from hqt.promotions.hlistwidget import HListWidget
 from hqt.promotions.hstacked_widget import HStackedWidget
 from hspylib.core.preconditions import check_argument, check_not_none
-from kafman.core.schema.widget_utils import InputValue, InputWidget, WidgetUtils
+from kafman.core.schema.schema_field import SchemaField
+from kafman.core.schema.widget_utils import InputWidget, MISSING, WidgetUtils
 from kafman.views.promotions.form_area import FormArea
-from PyQt5.QtWidgets import (QCheckBox, QDoubleSpinBox, QFrame, QGridLayout, QLabel, QLineEdit, QPushButton, QSpinBox,
-                             QVBoxLayout, QWidget)
-from typing import Optional
+from PyQt6.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+from typing import Any, Optional
 
 
 class FormPane(HFrame):
@@ -36,35 +40,16 @@ class FormPane(HFrame):
 
     FIELD_COLUMN = 2
 
-    INPUT_WIDGETS = ["HComboBox", "HListWidget", "QCheckBox", "QSpinBox", "QDoubleSpinBox", "QLineEdit"]
-
-    _forms = defaultdict()
-
-    @staticmethod
-    def _field_value(widget: InputWidget) -> Optional[InputValue]:
-        """TODO"""
-
-        widget_type = widget.__class__
-        if widget_type == HComboBox:
-            value = widget.currentText()
-        elif widget_type == HListWidget:
-            value = widget.as_list()
-        elif widget_type == QCheckBox:
-            value = widget.isChecked()
-        elif widget_type in [QSpinBox, QDoubleSpinBox]:
-            value = widget.value()
-        elif widget_type == QLineEdit:
-            value = widget.text()
-        else:
-            value = None
-
-        return value
-
-    def __init__(self, parent: QWidget, parent_form: "FormPane", form_name: str):
+    def __init__(
+        self, parent: QWidget, parent_form: Optional["FormPane"], form_name: str
+    ):
         super().__init__(parent)
-        check_argument(form_name is not None and len(form_name) > 1, f"Invalid form name: {form_name}")
-        self._fields = defaultdict()
-        self._forms[form_name] = self
+        check_argument(
+            form_name is not None and len(form_name) > 1,
+            f"Invalid form name: {form_name}",
+        )
+        self._fields: dict[str, Any] = {}
+        self._schema_fields: dict[str, SchemaField] = {}
         self._name = form_name
         self._parent_form = parent_form
         self._form_frame = QFrame(self)
@@ -74,14 +59,11 @@ class FormPane(HFrame):
 
         self.setObjectName(form_name)
         self.setContentsMargins(0, 0, 0, 0)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        self.setFrameStyle(int(QFrame.Shape.StyledPanel) | int(QFrame.Shadow.Raised))
         self._box.addWidget(self._form_area)
-        self._form_frame.setFrameStyle(QFrame.NoFrame)
+        self._form_frame.setFrameStyle(int(QFrame.Shape.NoFrame))
         self._form_frame.setContentsMargins(0, 0, 0, 0)
         self._form_area.setWidget(self._form_frame)
-
-    def __getitem__(self, form_name):
-        return self._forms[form_name]
 
     def grid(self) -> QGridLayout:
         return self._grid
@@ -92,7 +74,21 @@ class FormPane(HFrame):
     def parent_name(self) -> Optional[str]:
         return self._parent_form.name() if self._parent_form else None
 
-    def add_field(self, field_name: str, label: QLabel, req_label: QLabel, widget: InputWidget, row: int) -> None:
+    def parent_form(self) -> Optional["FormPane"]:
+        return self._parent_form
+
+    def schema_field(self, field_name: str) -> Optional[SchemaField]:
+        return self._schema_fields.get(field_name)
+
+    def add_field(
+        self,
+        field_name: str,
+        label: QLabel,
+        req_label: QLabel,
+        widget: InputWidget,
+        row: int,
+        field: Optional[SchemaField] = None,
+    ) -> None:
         """TODO"""
 
         check_not_none(widget)
@@ -100,10 +96,19 @@ class FormPane(HFrame):
         self._grid.addWidget(label, row, self.LABEL_COLUMN)
         self._grid.addWidget(req_label, row, self.REQUIRED_COLUMN)
         self._grid.addWidget(widget, row, self.FIELD_COLUMN)
-        self._fields[widget.objectName()] = defaultdict()
+        if field is not None:
+            self._schema_fields[field_name] = field
+            self._fields[field_name] = MISSING
 
     def add_form_button(
-        self, field_name: str, label: QLabel, req_label: QLabel, row: int, index: int, form_stack: HStackedWidget
+        self,
+        field_name: str,
+        label: QLabel,
+        req_label: QLabel,
+        row: int,
+        index: int,
+        form_stack: HStackedWidget,
+        field: SchemaField,
     ) -> None:
         """TODO"""
 
@@ -114,7 +119,8 @@ class FormPane(HFrame):
         fill_button.setMinimumHeight(30)
         fill_button.setDefault(False)
         fill_button.setAutoDefault(False)
-        self.add_field(field_name, label, req_label, fill_button, row)
+        editor = field.wrap_nested_widget(fill_button)
+        self.add_field(field_name, label, req_label, editor, row, field)
 
     def add_back_button(self, back_index: int, form_stack: HStackedWidget) -> None:
         """TODO"""
@@ -132,14 +138,7 @@ class FormPane(HFrame):
     def fields(self) -> dict:
         """TODO"""
 
-        # update all field values
-        for row in range(0, self._grid.rowCount()):
-            item = self._grid.itemAtPosition(row, self.FIELD_COLUMN)
-            widget = item.widget() if item else None
-            if self._is_input_widget(widget):
-                self._fields[widget.objectName()] = self._field_value(widget)
+        for field_name, field in self._schema_fields.items():
+            self._fields[field_name] = field.value()
 
         return self._fields
-
-    def _is_input_widget(self, widget: QWidget) -> bool:
-        return widget is not None and type(widget).__name__ in self.INPUT_WIDGETS

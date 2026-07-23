@@ -2,20 +2,19 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.views
-      @file: main_qt_view.py
-   @created: Wed, 30 Jun 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.views
+   @file: main_qt_view.py
+@created: Wed, 30 Jun 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
 from clitt.core.icons.font_awesome.dashboard_icons import DashboardIcons
 from clitt.core.icons.font_awesome.form_icons import FormIcons
-from collections import defaultdict
 from confluent_kafka.cimpl import Consumer
 from copy import deepcopy
 from hqt.promotions.hstacked_widget import HStackedWidget
@@ -26,7 +25,11 @@ from hspylib.core.enums.charset import Charset
 from hspylib.core.exception.exceptions import InvalidInputError, InvalidStateError
 from hspylib.core.preconditions import check_state
 from hspylib.core.tools.commons import dirname
-from hspylib.core.tools.text_tools import strip_escapes, strip_extra_spaces, strip_linebreaks
+from hspylib.core.tools.text_tools import (
+    strip_escapes,
+    strip_extra_spaces,
+    strip_linebreaks,
+)
 from hspylib.core.zoned_datetime import now, now_ms
 from hspylib.modules.fetch.fetch import is_reachable
 from json.decoder import JSONDecodeError
@@ -51,10 +54,10 @@ from kafman.views.dialogs.filters_dialog import FiltersDialog
 from kafman.views.dialogs.settings_dialog import SettingsDialog
 from kafman.views.indexes import StkProducerEdit, StkTools, Tabs
 from pathlib import Path
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from typing import List, Optional, Tuple, Union
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import ast
 import atexit
@@ -70,13 +73,18 @@ class MainQtView(QtView):
 
     VERSION = classpath.get_source(".version").read_text(encoding=Charset.UTF_8.val)
 
-    SCHEMA_DIR = classpath.resource_path / "schema"
+    SCHEMA_DIR = classpath.resource_path / "schemas"
 
     FORMS_DIR = str(classpath.resource_path / "forms")
 
     HISTORY_FILE = f"{os.getenv('HOME', os.getcwd())}/.kafman-history.properties"
 
-    KAFKA_INTERNAL_TOPICS = ("_confluent", "_schemas", "__consumer_offsets", "__transaction_state")
+    KAFKA_INTERNAL_TOPICS = (
+        "_confluent",
+        "_schemas",
+        "__consumer_offsets",
+        "__transaction_state",
+    )
 
     @staticmethod
     def _supported_schemas() -> str:
@@ -92,7 +100,9 @@ class MainQtView(QtView):
         if not text:
             return False
         t = text.strip()
-        return (t.startswith("{") and t.endswith("}")) or (t.startswith("[") and t.endswith("]"))
+        return (t.startswith("{") and t.endswith("}")) or (
+            t.startswith("[") and t.endswith("]")
+        )
 
     def __init__(self):
         # Must come after the initialization above
@@ -105,10 +115,12 @@ class MainQtView(QtView):
         self._producer = ProducerWorker()
         self._producer.messageProduced.connect(self._message_produced)
         self._producer.messageFailed.connect(self._display_error)
-        self._all_settings = {}
-        self._last_schema_dir = self.SCHEMA_DIR
+        self._all_settings: Dict[str, Dict[str, Any]] = {}
+        self._all_settings.update(ProducerConfig.defaults())
+        self._all_settings.update(ConsumerConfig.defaults())
+        self._last_schema_dir = str(self.SCHEMA_DIR)
         self._last_used_dir = os.getcwd()
-        self._all_schemas = defaultdict(None, {})
+        self._all_schemas: Dict[str, KafkaSchema] = {}
         self._stats = StatisticsWorker()
         self._stats.statisticsReported.connect(self._update_stats)
         self._stats.start()
@@ -121,6 +133,7 @@ class MainQtView(QtView):
         list(map(self.ui.lst_cons_settings.set_item, self._all_settings["consumer"]))
         list(map(self.ui.lst_prod_settings.set_item, self._all_settings["producer"]))
         atexit.register(self._save_history)
+        atexit.register(self._stop_workers)
         atexit.register(self._capturer.quit)
         self._capturer.start()
 
@@ -136,28 +149,38 @@ class MainQtView(QtView):
         self.ui.splitter_pane.setSizes([350, 824])
         self.ui.tool_box.setCurrentIndex(StkTools.SETTINGS.value)
         self.ui.tab_widget.currentChanged.connect(self._activate_tab)
-        self.ui.lbl_status_text.setTextFormat(Qt.RichText)
+        self.ui.lbl_status_text.setTextFormat(Qt.TextFormat.RichText)
         self.ui.lbl_status_text.set_elidable(True)
         self.ui.lbl_status_text.set_dynamic_tooltip(True)
         self.ui.tbtn_test_registry_url.setText(FormIcons.CHECK_CIRCLE.value)
-        self.ui.tbtn_test_registry_url.clicked.connect(lambda: self._test_registry_url(pop_warn_box=True))
+        self.ui.tbtn_test_registry_url.clicked.connect(
+            lambda: self._test_registry_url(pop_warn_box=True)
+        )
         self.ui.tbtn_sel_schema.setText(DashboardIcons.FOLDER_OPEN.value)
         self.ui.tbtn_sel_schema.clicked.connect(self._add_schema)
         self.ui.tbtn_desel_schema.setText(FormIcons.DESELECT.value)
         self.ui.tbtn_desel_schema.clicked.connect(self._deselect_schema)
         self.ui.tbtn_del_schema.setText(FormIcons.MINUS.value)
         self.ui.tbtn_del_schema.released.connect(self.ui.cmb_sel_schema.del_item)
-        self.ui.cmb_registry_url.lineEdit().editingFinished.connect(self._invalidate_registry_url)
+        self.ui.cmb_registry_url.lineEdit().editingFinished.connect(
+            self._invalidate_registry_url
+        )
         self.ui.cmb_sel_schema.currentTextChanged.connect(self._change_schema)
-        self.ui.cmb_registry_url.lineEdit().setPlaceholderText("The registry server url")
+        self.ui.cmb_registry_url.lineEdit().setPlaceholderText(
+            "The registry server url"
+        )
         self.ui.tbtn_registry_refresh.setText(FormIcons.REFRESH.value)
         self.ui.tbtn_registry_refresh.clicked.connect(self._refresh_registry_subjects)
-        self.ui.tbl_registry.add_custom_menu_action("Deregister subjects", self._deregister_subject, True)
+        self.ui.tbl_registry.add_custom_menu_action(
+            "Deregister subjects", self._deregister_subject, True
+        )
         self.ui.txt_sel_schema.set_clearable(False)
 
     def _setup_producer_controls(self):
         """Setup producer components"""
-        self.ui.cmb_prod_topics.lineEdit().setPlaceholderText("Select or type a new kafka topic")
+        self.ui.cmb_prod_topics.lineEdit().setPlaceholderText(
+            "Select or type a new kafka topic"
+        )
         self.ui.tbtn_prod_settings_add.clicked.connect(self._add_producer_setting)
         self.ui.tbtn_prod_settings_add.setText(FormIcons.PLUS.value)
         self.ui.tbtn_prod_settings_del.clicked.connect(self._del_setting)
@@ -169,7 +192,9 @@ class MainQtView(QtView):
         self.ui.tbtn_produce.setText(DashboardIcons.SEND.value)
         self.ui.tbtn_prod_clear_topics.setText(FormIcons.CLEAR.value)
         self.ui.tbtn_prod_find_topics.setText(DashboardIcons.SEARCH.value)
-        self.ui.tbtn_prod_find_topics.clicked.connect(lambda: self._fetch_broker_topics(is_producer=True))
+        self.ui.tbtn_prod_find_topics.clicked.connect(
+            lambda: self._fetch_broker_topics(is_producer=True)
+        )
         self.ui.tbtn_prod_add_topics.setText(FormIcons.PLUS.value)
         self.ui.tbtn_prod_add_topics.clicked.connect(self._add_topic)
         self.ui.tbtn_prod_del_topics.setText(FormIcons.MINUS.value)
@@ -177,7 +202,9 @@ class MainQtView(QtView):
         self.ui.tbtn_prod_open_file.clicked.connect(self._open_message_file)
         self.ui.tbtn_prod_save_file.setText(DashboardIcons.SAVE.value)
         self.ui.tbtn_prod_save_file.clicked.connect(self._save_message_file)
-        self.ui.tbtn_prod_del_topics.clicked.connect(lambda: self._del_topic(is_producer=True))
+        self.ui.tbtn_prod_del_topics.clicked.connect(
+            lambda: self._del_topic(is_producer=True)
+        )
         self.ui.lst_prod_settings.currentRowChanged.connect(self._get_setting)
         self.ui.lst_prod_settings.set_editable()
         self.ui.lst_prod_settings.itemChanged.connect(self._edit_setting)
@@ -207,7 +234,9 @@ class MainQtView(QtView):
 
     def _setup_consumer_controls(self):
         """Setup consumer components"""
-        self.ui.cmb_cons_topics.lineEdit().setPlaceholderText("Select or type a new kafka topic")
+        self.ui.cmb_cons_topics.lineEdit().setPlaceholderText(
+            "Select or type a new kafka topic"
+        )
         self.ui.tbtn_cons_settings_add.clicked.connect(self._add_consumer_setting)
         self.ui.tbtn_cons_settings_add.setText(FormIcons.PLUS.value)
         self.ui.tbtn_cons_settings_del.clicked.connect(self._del_setting)
@@ -217,11 +246,17 @@ class MainQtView(QtView):
         self.ui.tbtn_cons_connect.setStyleSheet("QToolButton {color: #2380FA;}")
         self.ui.tbtn_cons_clear_topics.setText(FormIcons.CLEAR.value)
         self.ui.tbtn_cons_find_topics.setText(DashboardIcons.SEARCH.value)
-        self.ui.tbtn_cons_find_topics.clicked.connect(lambda: self._fetch_broker_topics(is_producer=False))
+        self.ui.tbtn_cons_find_topics.clicked.connect(
+            lambda: self._fetch_broker_topics(is_producer=False)
+        )
         self.ui.tbtn_cons_add_topics.setText(FormIcons.PLUS.value)
-        self.ui.tbtn_cons_add_topics.clicked.connect(lambda: self._add_topic(is_producer=False))
+        self.ui.tbtn_cons_add_topics.clicked.connect(
+            lambda: self._add_topic(is_producer=False)
+        )
         self.ui.tbtn_cons_del_topics.setText(FormIcons.MINUS.value)
-        self.ui.tbtn_cons_del_topics.clicked.connect(lambda: self._del_topic(is_producer=False))
+        self.ui.tbtn_cons_del_topics.clicked.connect(
+            lambda: self._del_topic(is_producer=False)
+        )
         self.ui.tbtn_cons_filters.setText(FormIcons.FILTER.value)
         self.ui.tbtn_cons_filters.clicked.connect(self._add_consumer_filters)
         self.ui.tbtn_cons_filters_refresh.setText(FormIcons.REFRESH.value)
@@ -230,7 +265,9 @@ class MainQtView(QtView):
         self.ui.lst_cons_settings.set_editable()
         self.ui.lst_cons_settings.itemChanged.connect(self._edit_setting)
         self.ui.le_cons_settings.editingFinished.connect(self._edit_setting)
-        self.ui.tbl_consumer.add_custom_menu_action("Commit offset", self._commit_offset, True)
+        self.ui.tbl_consumer.add_custom_menu_action(
+            "Commit offset", self._commit_offset, True
+        )
         HTableModel(self.ui.tbl_consumer, KafkaMessage)
         self.ui.lbl_cons_filters.setText(str(self.ui.tbl_consumer.filters()))
 
@@ -244,7 +281,9 @@ class MainQtView(QtView):
 
     def _required_settings(self) -> List[str]:
         """Return the required consumer/producer settings to start properly"""
-        return (ProducerConfig if self._is_producer() else ConsumerConfig).required_settings()
+        return (
+            ProducerConfig if self._is_producer() else ConsumerConfig
+        ).required_settings()
 
     def _topics(self, is_producer: bool) -> Optional[List[str]]:
         """Return the selected topic or a list containing all of them"""
@@ -256,7 +295,7 @@ class MainQtView(QtView):
         )
         return topics if len(topics) > 0 else None
 
-    def _settings(self) -> Optional[dict]:
+    def _settings(self) -> Dict[str, Any]:
         """Return the configured settings"""
         settings = self._all_settings[self._kafka_type()]
         check_state(all(s in settings for s in self._required_settings()))
@@ -264,7 +303,9 @@ class MainQtView(QtView):
 
     def _schema(self) -> KafkaSchema:
         """Return the active serialization schema"""
-        schema = self._producer.schema() if self._is_producer() else self._consumer.schema()
+        schema = (
+            self._producer.schema() if self._is_producer() else self._consumer.schema()
+        )
         if not schema:
             schema = self._selected_schema()
         return schema
@@ -272,12 +313,19 @@ class MainQtView(QtView):
     def _selected_schema(self):
         """Return the selected schema"""
         sel_schema = self.ui.cmb_sel_schema.currentText()
-        return self._all_schemas[sel_schema] if sel_schema in self._all_schemas else PlainSchema()
+        return (
+            self._all_schemas[sel_schema]
+            if sel_schema in self._all_schemas
+            else PlainSchema()
+        )
 
     def _messages(self) -> Union[str, List[str]]:
         """Return the selected messages or build a json message from form"""
         schema = self._schema()
-        if isinstance(schema, PlainSchema) or self.ui.stk_producer_edit.currentIndex() == StkProducerEdit.TEXT.value:
+        if (
+            isinstance(schema, PlainSchema)
+            or self.ui.stk_producer_edit.currentIndex() == StkProducerEdit.TEXT.value
+        ):
             text = self.ui.txt_producer.toPlainText()
             msgs = [text] if self._is_json(text) else text.split("\n")
             return list(map(strip_linebreaks, filter(None, msgs)))
@@ -286,45 +334,63 @@ class MainQtView(QtView):
 
     def _add_consumer_setting(self) -> None:
         settings_dlg = SettingsDialog(
-            self.ui.splitter_pane, SettingsDialog.SettingsType.CONSUMER, self._settings(), self.ui.lst_cons_settings
+            self.ui.splitter_pane,
+            SettingsDialog.SettingsType.CONSUMER,
+            self._settings(),
+            self.ui.lst_cons_settings,
         )
         settings_dlg.set_window_title("Add a consumer setting")
         settings_dlg.show()
 
     def _add_producer_setting(self) -> None:
         settings_dlg = SettingsDialog(
-            self.ui.splitter_pane, SettingsDialog.SettingsType.PRODUCER, self._settings(), self.ui.lst_prod_settings
+            self.ui.splitter_pane,
+            SettingsDialog.SettingsType.PRODUCER,
+            self._settings(),
+            self.ui.lst_prod_settings,
         )
         settings_dlg.set_window_title("Add a producer setting")
         settings_dlg.show()
 
     def _add_consumer_filters(self) -> None:
-        filters_dlg = FiltersDialog(self.ui.splitter_pane, self.ui.tbl_consumer.filters())
-        filters_dlg.filtersChanged.connect(lambda s: self.ui.lbl_cons_filters.setText(f"Filters: {s}"))
+        filters_dlg = FiltersDialog(
+            self.ui.splitter_pane, self.ui.tbl_consumer.filters()
+        )
+        filters_dlg.filtersChanged.connect(
+            lambda s: self.ui.lbl_cons_filters.setText(f"Filters: {s}")
+        )
         filters_dlg.show()
 
     def _open_message_file(self) -> None:
         file_tuple = QFileDialog.getOpenFileNames(
-            self.ui.tab_widget, "Open file", self._last_used_dir or ".", "Select a message file (*.txt *.json *.csv)"
+            self.ui.tab_widget,
+            "Open file",
+            self._last_used_dir or ".",
+            "Select a message file (*.txt *.json *.csv)",
         )
         if file_tuple and file_tuple[0]:
-            self._last_used_dir = dirname(file_tuple[0][0])
-            self.ui.txt_producer.set_plain_text(Path(file_tuple[0][0]).read_text(encoding=Charset.UTF_8.val))
+            self._last_used_dir = dirname(file_tuple[0][0]) or "."
+            self.ui.txt_producer.set_plain_text(
+                Path(file_tuple[0][0]).read_text(encoding=Charset.UTF_8.val)
+            )
 
     def _save_message_file(self) -> None:
         file_tuple = QFileDialog.getSaveFileName(
-            self.ui.tab_widget, "Save file", self._last_used_dir or ".", "Save file as (*.*)"
+            self.ui.tab_widget,
+            "Save file",
+            self._last_used_dir or ".",
+            "Save file as (*.*)",
         )
         if file_tuple and file_tuple[0]:
-            self._last_used_dir = dirname(file_tuple[0])
+            self._last_used_dir = dirname(file_tuple[0]) or "."
             with open(Path(file_tuple[0]), "w", encoding=Charset.UTF_8.val) as fd_file:
                 fd_file.write(self.ui.txt_producer.toPlainText())
 
     def _form_to_message(self, validate: bool = True) -> str:
         """Return the message built from the schema form"""
         message = self.ui.scr_schema_fields.values()
-        if validate:
-            self._validate_schema_form()
+        if validate and not self._validate_schema_form():
+            raise InvalidInputError("Schema form is not valid")
 
         return message
 
@@ -354,24 +420,26 @@ class MainQtView(QtView):
         self.ui.tbtn_format_msg.setEnabled(enabled)
         self.ui.tbtn_format_msg.setStyleSheet("QToolButton {}")
 
-    def _validate_schema_form(self):
+    def _validate_schema_form(self) -> bool:
         """Validate current schema form against the loaded schema"""
         schema = self._schema()
         try:
             json_form = json.loads(self.ui.scr_schema_fields.values())
             schema.validate(json_form)
             self._display_text("Schema form is valid", StatusColor.green)
+            return True
         except Exception as err:  # pylint: disable=broad-except
             self._display_error(f"Schema form is not valid:: {err}")
+            return False
 
-    def _activate_tab(self, index: int = None) -> None:
+    def _activate_tab(self, index: Optional[int] = None) -> None:
         """Set the selected tab"""
         index = index if index is not None else self.ui.tab_widget.currentIndex()
         self.ui.tab_widget.setCurrentIndex(index)
         self.ui.stk_settings.setCurrentIndex(index)
         self.ui.stk_statistics.setCurrentIndex(index)
 
-    def _add_schema(self, file_tuple: Tuple[str, str] = None) -> bool:
+    def _add_schema(self, file_tuple: Optional[Tuple[List[str], str]] = None) -> bool:
         """Select an serialization schema from the file picker dialog or from specified file"""
         ret_val = False
         if not file_tuple:
@@ -383,12 +451,16 @@ class MainQtView(QtView):
             )
         if file_tuple and len(file_tuple[0]):
             for schema_file in file_tuple[0]:
-                self._last_schema_dir = dirname(schema_file)
+                self._last_schema_dir = dirname(schema_file) or "."
                 registry_url = self._test_registry_url()
                 if registry_url:
                     try:
                         schema = SchemaFactory.create_schema(schema_file, registry_url)
-                        self._registry.register(schema.get_schema_name(), schema.get_content_text())
+                        self._registry.register(
+                            schema.get_schema_name(),
+                            schema.get_content_text(),
+                            schema.get_schema_type(),
+                        )
                         self._all_schemas[schema.get_schema_name()] = schema
                         self.ui.cmb_sel_schema.set_item(schema.get_schema_name())
                         self.ui.cmb_registry_schema.set_item(schema.get_schema_name())
@@ -432,7 +504,9 @@ class MainQtView(QtView):
                 schema.create_schema_form_widget(form_widget)
                 self.ui.scr_schema_fields.setWidget(form_widget)
                 self._schema_form_changed(0)
-                self.ui.lbl_schema_fields.setText(f"{schema.get_schema_name()} Schema Fields")
+                self.ui.lbl_schema_fields.setText(
+                    f"{schema.get_schema_name()} Schema Fields"
+                )
                 return True
             except AttributeError as err:
                 self.ui.cmb_sel_schema.removeItem(self.ui.cmb_sel_schema.currentIndex())
@@ -462,8 +536,16 @@ class MainQtView(QtView):
 
     def _get_setting(self) -> None:
         """Get a setting and display it on the proper line edit field"""
-        lst = self.ui.lst_prod_settings if self._is_producer() else self.ui.lst_cons_settings
-        edt = self.ui.le_prod_settings if self._is_producer() else self.ui.le_cons_settings
+        lst = (
+            self.ui.lst_prod_settings
+            if self._is_producer()
+            else self.ui.lst_cons_settings
+        )
+        edt = (
+            self.ui.le_prod_settings
+            if self._is_producer()
+            else self.ui.le_cons_settings
+        )
         ktype = self._kafka_type()
         item = lst.currentItem()
         if item and item.text():
@@ -476,19 +558,36 @@ class MainQtView(QtView):
 
     def _edit_setting(self) -> None:
         """Edit a setting from the proper line edit field"""
-        lst = self.ui.lst_prod_settings if self._is_producer() else self.ui.lst_cons_settings
-        edt = self.ui.le_prod_settings if self._is_producer() else self.ui.le_cons_settings
+        lst = (
+            self.ui.lst_prod_settings
+            if self._is_producer()
+            else self.ui.lst_cons_settings
+        )
+        edt = (
+            self.ui.le_prod_settings
+            if self._is_producer()
+            else self.ui.le_cons_settings
+        )
         ktype = self._kafka_type()
         item = lst.currentItem()
         if item:
             setting = item.text()
-            old_setting = next((s for i, s in enumerate(self._all_settings[ktype]) if i == lst.currentRow()), "")
+            old_setting = next(
+                (
+                    s
+                    for i, s in enumerate(self._all_settings[ktype])
+                    if i == lst.currentRow()
+                ),
+                "",
+            )
             if setting:
                 if setting not in self._all_settings[ktype]:
                     del self._all_settings[ktype][old_setting]
                 if edt.text():
                     self._all_settings[ktype][setting] = edt.text()
-                    self._display_text(f"{ktype.capitalize()} setting '{setting}' saved")
+                    self._display_text(
+                        f"{ktype.capitalize()} setting '{setting}' saved"
+                    )
                 else:
                     self._all_settings[ktype][setting] = ""
             else:
@@ -500,7 +599,11 @@ class MainQtView(QtView):
 
     def _del_setting(self) -> None:
         """Delete a setting specified by the proper line edit field"""
-        lst = self.ui.lst_prod_settings if self._is_producer() else self.ui.lst_cons_settings
+        lst = (
+            self.ui.lst_prod_settings
+            if self._is_producer()
+            else self.ui.lst_cons_settings
+        )
         ktype = self._kafka_type()
         item = lst.currentItem()
         if item:
@@ -520,20 +623,23 @@ class MainQtView(QtView):
         }
         brokers = config[ConsumerConfig.BOOTSTRAP_SERVERS]
         if not is_reachable(brokers):
-            self._display_error(f"Unable to connect to kafka brokers: [{brokers}]", pop_warn_box=True)
+            self._display_error(
+                f"Unable to connect to kafka brokers: [{brokers}]", pop_warn_box=True
+            )
             return
         consumer = Consumer(config)
         topics = [
             k
             for (k, v) in consumer.list_topics().topics.items()
-            if not k.startswith(self.KAFKA_INTERNAL_TOPICS) and not k.startswith(f"{config[ConsumerConfig.GROUP_ID]}--")
+            if not k.startswith(self.KAFKA_INTERNAL_TOPICS)
+            and not k.startswith(f"{config[ConsumerConfig.GROUP_ID]}--")
         ]
         self._display_text(f"Retrieved {len(topics)} topics from broker: {brokers}")
         consumer.close()
         for topic in topics:
             self._add_topic(topic, is_producer)
 
-    def _add_topic(self, topic: str = None, is_producer: bool = True) -> None:
+    def _add_topic(self, topic: Optional[str] = None, is_producer: bool = True) -> None:
         """Add a topic to the combo box."""
         if is_producer:
             new_topic = self.ui.cmb_prod_topics.currentText()
@@ -556,7 +662,9 @@ class MainQtView(QtView):
             del_topic = self.ui.cmb_prod_topics.currentText()
             cmb = self.ui.cmb_prod_topics
         if del_topic:
-            self._display_text(f"Topic {del_topic} has been removed from {self._kafka_type()}")
+            self._display_text(
+                f"Topic {del_topic} has been removed from {self._kafka_type()}"
+            )
             cmb.removeItem(cmb.currentIndex())
 
     def _invalidate_registry_url(self) -> None:
@@ -565,7 +673,9 @@ class MainQtView(QtView):
         self.ui.tbtn_test_registry_url.setText(FormIcons.CHECK_CIRCLE.value)
         self._registry.invalidate()
 
-    def _test_registry_url(self, skip_if_tested: bool = True, pop_warn_box: bool = False) -> Optional[str]:
+    def _test_registry_url(
+        self, skip_if_tested: bool = True, pop_warn_box: bool = False
+    ) -> Optional[str]:
         """Check is the provided schema registry url is valid or not"""
         url = self.ui.cmb_registry_url.currentText()
         if self._registry.is_valid() and skip_if_tested:
@@ -573,33 +683,39 @@ class MainQtView(QtView):
         if url:
             if self._registry.set_url(url):
                 self.ui.tbtn_test_registry_url.setText(FormIcons.CHECK_CIRCLE.value)
-                self.ui.tbtn_test_registry_url.setStyleSheet("QToolButton {color: #28C941;}")
+                self.ui.tbtn_test_registry_url.setStyleSheet(
+                    "QToolButton {color: #28C941;}"
+                )
                 self._display_text(f"Host {url} succeeded", StatusColor.green)
             else:
                 self.ui.tbtn_test_registry_url.setText(FormIcons.ERROR_CIRCLE.value)
-                self.ui.tbtn_test_registry_url.setStyleSheet("QToolButton {color: #FF554D;}")
-                self._display_error(f"Unable to connect to registry server: [{url}]", pop_warn_box=pop_warn_box)
+                self.ui.tbtn_test_registry_url.setStyleSheet(
+                    "QToolButton {color: #FF554D;}"
+                )
+                self._display_error(
+                    f"Unable to connect to registry server: [{url}]",
+                    pop_warn_box=pop_warn_box,
+                )
         else:
             self.ui.tbtn_test_registry_url.setText(FormIcons.UNCHECK_CIRCLE.value)
-            self.ui.tbtn_test_registry_url.setStyleSheet("QToolButton {color: #FF554D;}")
+            self.ui.tbtn_test_registry_url.setStyleSheet(
+                "QToolButton {color: #FF554D;}"
+            )
 
         return url
 
     def _commit_offset(self) -> None:
-        """TODO"""
+        """Commit the selected message offset for its exact topic partition."""
         table = self.ui.tbl_consumer
         model = table.model()
         sel_model = table.selectionModel()
-        if sel_model:
-            index_list = sel_model.selectedIndexes()
-            offset_idx, _ = next(((i, h) for i, h in enumerate(model.headers) if str(h).lower() == "offset"), None)
-            offset = -1
-            for index in index_list:
-                offset_col_idx = index.sibling(index.row(), offset_idx)
-                offset = max(offset, int(str(model.column(offset_col_idx))))
-            if offset >= 0:
-                self._consumer.commit(offset)
-                self._display_text(f"Offset committed: {offset} (all topics)", StatusColor.yellow)
+        if model and sel_model and (indexes := sel_model.selectedIndexes()):
+            message = model.row(indexes[0])
+            self._consumer.commit(message.topic, message.partition, message.offset)
+            self._display_text(
+                f"Offset committed: {message.topic}[{message.partition}]@{message.offset}",
+                StatusColor.yellow,
+            )
 
     def _toggle_start_producer(self) -> None:
         """Start/Stop the producer."""
@@ -612,17 +728,28 @@ class MainQtView(QtView):
         else:  # Start
             topics = self._topics(True)
             if not topics:
-                self._display_error("Must subscribe to at least one topic", pop_warn_box=True)
+                self._display_error(
+                    "Must subscribe to at least one topic", pop_warn_box=True
+                )
                 return
             schema = self._schema()
             settings = deepcopy(self._settings())
             settings.update(schema.settings())
-            settings = {k: v for k, v in settings.items() if not k.endswith(".deserializer")}
-            schema_name = f' using schema "{str(self._schema())}"' if self._schema() else ""
+            settings = {
+                k: v for k, v in settings.items() if not k.endswith(".deserializer")
+            }
+            schema_name = (
+                f' using schema "{str(self._schema())}"' if self._schema() else ""
+            )
             self.ui.tool_box.setCurrentIndex(StkTools.STATISTICS.value)
             self._producer.start_producer(settings, schema)
-            self._display_text(f"Producer settings: {pprint.pformat(settings, indent=2)}")
-            self._display_text(f"Started producer. Topics: {topics}  Schema: {schema_name}", StatusColor.green)
+            self._display_text(
+                f"Producer settings: {pprint.pformat(settings, indent=2)}"
+            )
+            self._display_text(
+                f"Started producer. Topics: {topics}  Schema: {schema_name}",
+                StatusColor.green,
+            )
 
         self.ui.scr_schema_fields.setEnabled(not started)
         self.ui.cmb_prod_topics.setEnabled(started)
@@ -638,7 +765,9 @@ class MainQtView(QtView):
         self.ui.tbtn_prod_add_topics.setEnabled(started)
         self.ui.tbtn_prod_del_topics.setEnabled(started)
         self.ui.tbtn_prod_clear_topics.setEnabled(started)
-        self.ui.tbtn_prod_connect.setText(DashboardIcons.PLUG_IN.value if started else DashboardIcons.PLUG_OUT.value)
+        self.ui.tbtn_prod_connect.setText(
+            DashboardIcons.PLUG_IN.value if started else DashboardIcons.PLUG_OUT.value
+        )
         self.ui.tbtn_prod_connect.setStyleSheet(
             "QToolButton {color: " + ("#FF554D" if not started else "#2380FA") + ";}"
         )
@@ -649,29 +778,44 @@ class MainQtView(QtView):
         if started:  # Stop
             self.ui.tool_box.setCurrentIndex(StkTools.SETTINGS.value)
             self._consumer.stop_consumer()
-            self._display_text("Consumption from kafka topics stopped", StatusColor.yellow)
+            self._display_text(
+                "Consumption from kafka topics stopped", StatusColor.yellow
+            )
         else:  # Start
             topics = self._topics(False)
             if not topics:
-                self._display_error("Must subscribe to at least one topic", pop_warn_box=True)
+                self._display_error(
+                    "Must subscribe to at least one topic", pop_warn_box=True
+                )
                 return
             schema = self._schema()
             settings = deepcopy(self._settings())
             settings.update(schema.settings())
-            settings = {k: v for k, v in settings.items() if not k.endswith(".serializer")}
-            schema_name = f' using schema "{str(self._schema())}"' if self._schema() else ""
+            settings = {
+                k: v for k, v in settings.items() if not k.endswith(".serializer")
+            }
+            schema_name = (
+                f' using schema "{str(self._schema())}"' if self._schema() else ""
+            )
             self.ui.tool_box.setCurrentIndex(StkTools.STATISTICS.value)
             self._consumer.start_consumer(settings, schema)
             self._consumer.consume(topics)
-            self._display_text(f"Consumer settings: {pprint.pformat(settings, indent=2)}")
-            self._display_text(f"Started consumer. Topics {topics}  Schema: {schema_name}", StatusColor.green)
+            self._display_text(
+                f"Consumer settings: {pprint.pformat(settings, indent=2)}"
+            )
+            self._display_text(
+                f"Started consumer. Topics {topics}  Schema: {schema_name}",
+                StatusColor.green,
+            )
 
         self.ui.cmb_cons_topics.setEnabled(started)
         self.ui.tbtn_cons_add_topics.setEnabled(started)
         self.ui.tbtn_cons_del_topics.setEnabled(started)
         self.ui.tbtn_cons_clear_topics.setEnabled(started)
         self.ui.tbtn_cons_connect.setText("O" if started else "-")
-        self.ui.tbtn_cons_connect.setText(DashboardIcons.PLUG_IN.value if started else DashboardIcons.PLUG_OUT.value)
+        self.ui.tbtn_cons_connect.setText(
+            DashboardIcons.PLUG_IN.value if started else DashboardIcons.PLUG_OUT.value
+        )
         self.ui.tbtn_cons_connect.setStyleSheet(
             "QToolButton {color: " + ("#FF554D" if not started else "#2380FA") + ";}"
         )
@@ -682,25 +826,37 @@ class MainQtView(QtView):
             messages = self._messages()
             if self._producer.is_started() and messages:
                 topics = self._topics(True)
-                self._producer.produce(topics, messages)
+                if topics:
+                    self._producer.produce(topics, messages)
         except InvalidInputError as err:
             self._display_error(str(err))
 
-    def _display_error(self, message: str, console_print: bool = True, pop_warn_box: bool = False) -> None:
+    def _display_error(
+        self, message: str, console_print: bool = True, pop_warn_box: bool = False
+    ) -> None:
         """Display an error at the status bar (and console if required)"""
 
         self._display_text(message, StatusColor.red, console_print, log_it=False)
         log.error(message)
         if pop_warn_box:
-            QMessageBox.warning(self.ui.tab_widget, "Attention", message, QMessageBox.Ok)
+            QMessageBox.warning(
+                self.ui.tab_widget,
+                "Attention",
+                message,
+                QMessageBox.StandardButton.Ok,
+            )
 
     def _display_text(
-        self, message: str, color: QColor = None, console_print: bool = True, log_it: bool = True
+        self,
+        message: str,
+        color: Optional[QColor] = None,
+        console_print: bool = True,
+        log_it: bool = True,
     ) -> None:
         """Display a text at the status bar (and console if required)"""
 
         message = f"<font color='{color.name() if color else 'white'}'>{message}</font>"
-        message.replace("\n", "<br/>")
+        message = message.replace("\n", "<br/>")
         self.ui.lbl_status_text.setText(message)
         if console_print:
             self._console_print(f"-> {message}", color)
@@ -725,13 +881,19 @@ class MainQtView(QtView):
         self.ui.lbl_stats_consumed_ps.setText(str(consumed_in_a_tick))
         self.ui.lbl_stats_consumed_avg.setText(str(average_consumed))
 
-    def _message_produced(self, topic: str, partition: int, offset: int, value: str) -> None:
+    def _message_produced(
+        self, topic: str, partition: int, offset: int, value: str
+    ) -> None:
         """Callback when a kafka message has been produced."""
         row = KafkaMessage(now_ms(), topic, partition, offset, value)
         text = f"-> Produced {row}"
         self._console_print(text, StatusColor.blue)
         self._stats.report_produced()
-        self._display_text(f"Produced {self._stats.get_in_a_tick()[0]} messages to Kafka", StatusColor.blue, False)
+        self._display_text(
+            f"Produced {self._stats.get_in_a_tick()[0]} messages to Kafka",
+            StatusColor.blue,
+            False,
+        )
         clear_txt = self.ui.tbtn_prod_clear_on_send_txt.isChecked()
         if clear_txt:
             self.ui.txt_producer.clear()
@@ -739,7 +901,9 @@ class MainQtView(QtView):
         if clear_form:
             self._build_schema_layout()
 
-    def _message_consumed(self, topic: str, partition: int, offset: int, value: str) -> None:
+    def _message_consumed(
+        self, topic: str, partition: int, offset: int, value: str
+    ) -> None:
         """Callback when a kafka message has been consumed."""
         row = KafkaMessage(now_ms(), topic, partition, offset, value)
         text = f"-> Consumed {row}"
@@ -755,8 +919,12 @@ class MainQtView(QtView):
             else:
                 self.ui.tbl_registry.model().clear()
             schema_types, subjects = self._registry.fetch_server_info()
-            self._display_text(f"[Registry] Supported schema types: {schema_types}", StatusColor.purple)
-            self._display_text(f"[Registry] Existing subjects: {subjects}", StatusColor.purple)
+            self._display_text(
+                f"[Registry] Supported schema types: {schema_types}", StatusColor.purple
+            )
+            self._display_text(
+                f"[Registry] Existing subjects: {subjects}", StatusColor.purple
+            )
             versions = self._registry.fetch_subject_versions()
             self.ui.tbl_registry.model().push_data(versions)
 
@@ -772,7 +940,7 @@ class MainQtView(QtView):
                     f"Schema subjects [{', '.join([s.subject for s in subjects])}] successfully deregistered"
                 )
 
-    def _console_print(self, text: str, color: QColor = None) -> None:
+    def _console_print(self, text: str, color: Optional[QColor] = None) -> None:
         """Append a message to the console."""
         if isinstance(text, str):
             msg = text
@@ -787,8 +955,14 @@ class MainQtView(QtView):
     def _save_history(self):
         """Save current app history."""
         with open(self.HISTORY_FILE, "w", encoding="utf-8") as fd_history:
-            prod_topics = [self.ui.cmb_prod_topics.itemText(i) for i in range(self.ui.cmb_prod_topics.count())]
-            cons_topics = [self.ui.cmb_cons_topics.itemText(i) for i in range(self.ui.cmb_cons_topics.count())]
+            prod_topics = [
+                self.ui.cmb_prod_topics.itemText(i)
+                for i in range(self.ui.cmb_prod_topics.count())
+            ]
+            cons_topics = [
+                self.ui.cmb_cons_topics.itemText(i)
+                for i in range(self.ui.cmb_cons_topics.count())
+            ]
             schemas = [
                 self._all_schemas[self.ui.cmb_sel_schema.itemText(i)].get_filepath()
                 for i in range(self.ui.cmb_sel_schema.count())
@@ -805,11 +979,16 @@ class MainQtView(QtView):
             fd_history.write(f"last_schema_dir = {self._last_schema_dir}\n")
             fd_history.write(f"schema = {schemas}\n")
             fd_history.write(f"last_schema = {self.ui.cmb_sel_schema.currentText()}\n")
-            fd_history.write(f"registry_url = {self.ui.cmb_registry_url.currentText()}\n")
+            fd_history.write(
+                f"registry_url = {self.ui.cmb_registry_url.currentText()}\n"
+            )
 
     def _load_history(self):  # pylint: disable=too-many-branches
         """Load a previously saved app history."""
-        if os.path.exists(self.HISTORY_FILE) and os.stat(self.HISTORY_FILE).st_size > MAX_HISTORY_SIZE_BYTES:
+        if (
+            os.path.exists(self.HISTORY_FILE)
+            and os.stat(self.HISTORY_FILE).st_size <= MAX_HISTORY_SIZE_BYTES
+        ):
             self._display_text("History recovered")
             with open(self.HISTORY_FILE, "r", encoding="utf-8") as fd_history:
                 lines = fd_history.readlines()
@@ -822,34 +1001,62 @@ class MainQtView(QtView):
                             if prop_name == "prod_topics":
                                 list(map(self._add_topic, ast.literal_eval(prop_value)))
                             elif prop_name == "cons_topics":
-                                list(map(lambda p: self._add_topic(p, False), ast.literal_eval(prop_value)))
+                                list(
+                                    map(
+                                        lambda p: self._add_topic(p, False),
+                                        ast.literal_eval(prop_value),
+                                    )
+                                )
                             elif prop_name == "settings":
-                                self._all_settings = ast.literal_eval(prop_value)
+                                settings = ast.literal_eval(prop_value)
+                                if isinstance(settings, dict):
+                                    self._all_settings = cast(
+                                        Dict[str, Dict[str, Any]], settings
+                                    )
                             elif prop_name == "window_size":
                                 size = ast.literal_eval(prop_value)
                                 self.window.resize(int(size[0]), int(size[1]))
                             elif prop_name == "splitter_sizes":
                                 size = ast.literal_eval(prop_value)
-                                self.ui.splitter_pane.setSizes([int(size[0]), int(size[1])])
+                                self.ui.splitter_pane.setSizes(
+                                    [int(size[0]), int(size[1])]
+                                )
                             elif prop_name == "selected_tab":
-                                self._activate_tab(int(prop_value or Tabs.PRODUCER.value))
+                                self._activate_tab(
+                                    int(prop_value or Tabs.PRODUCER.value)
+                                )
                             elif prop_name == "last_schema_dir":
-                                self._last_schema_dir = prop_value
+                                self._last_schema_dir = str(prop_value)
                             elif prop_name == "last_used_dir":
                                 self._last_used_dir = prop_value
                             elif prop_name == "schema":
-                                t_schema = ast.literal_eval(prop_value), f"Schema files ({self._supported_schemas()})"
+                                t_schema = (
+                                    ast.literal_eval(prop_value),
+                                    f"Schema files ({self._supported_schemas()})",
+                                )
                                 if len(t_schema[0]) > 0:
                                     self._add_schema(t_schema)
                             elif prop_name == "last_schema":
                                 self.ui.cmb_sel_schema.setCurrentText(prop_value)
                             elif prop_name == "registry_url":
-                                self.ui.cmb_registry_url.setCurrentText(prop_value or "localhost:8081")
+                                self.ui.cmb_registry_url.setCurrentText(
+                                    prop_value or "localhost:8081"
+                                )
                 except ValueError:
-                    log.warning('Invalid history value "%s" for setting "%s"', prop_value, prop_name)
+                    log.warning(
+                        'Invalid history value "%s" for setting "%s"',
+                        prop_value,
+                        prop_name,
+                    )
         else:
             # Defaults
             self._display_text("Kafman history was not loaded")
             self._all_settings.update(ProducerConfig.defaults())
             self._all_settings.update(ConsumerConfig.defaults())
             self._activate_tab()
+
+    def _stop_workers(self) -> None:
+        """Stop background workers before the application exits."""
+        self._producer.stop_producer()
+        self._consumer.stop_consumer()
+        self._stats.stop()

@@ -29,7 +29,7 @@ idea {
 
 ext {
   python = "python${pythonVersion}"
-  pyrcc = "pyrcc${pyrccVersion}"
+  pyrcc = System.getenv('QT_RCC') ?: 'rcc'
   startTime = System.currentTimeMillis()
   verbose = findProperty('verbose') ?: false
   sourceRoot = "$rootDir/modules/$project.name/src"

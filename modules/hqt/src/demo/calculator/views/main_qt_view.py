@@ -2,32 +2,35 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Hqt
-   @package: demo.qtdemos.calculator.views
-      @file: main_qt_view.py
-   @created: Tue, 4 May 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Hqt
+@package: demo.qtdemos.calculator.views
+   @file: main_qt_view.py
+@created: Tue, 4 May 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
 from calculator.core.operations import Operations
 from calculator.views.blink_lcd_thread import BlinkLcdThread
 from hqt.views.qt_view import QtView
 from hspylib.core.config.app_config import AppConfigs
-from PyQt5.QtCore import Qt
+from pathlib import Path
+from PyQt6.QtCore import Qt
 
 import logging as log
 
 
 class MainQtView(QtView):
     UI_FILE = "qt_calculator.ui"
+    RESOURCES_DIR = Path(__file__).parents[1] / "resources"
+    FORMS_DIR = RESOURCES_DIR / "forms"
 
     def __init__(self):
-        super().__init__(self.UI_FILE)
-        self._configs = AppConfigs.INSTANCE
+        super().__init__(self.UI_FILE, str(self.FORMS_DIR))
+        self._configs = AppConfigs(self.RESOURCES_DIR)
         self._dec_sep = self._configs["decimal.separator"]
         self._min_digits = int(self._configs["min.digits"])
         self._max_digits = int(self._configs["max.digits"])
@@ -67,27 +70,27 @@ class MainQtView(QtView):
     def _setup_keymap(self) -> None:
         """Setup the main frame key map callbacks."""
         self._keymap = {
-            Qt.Key_0: self._btn0_clicked,
-            Qt.Key_1: self._btn1_clicked,
-            Qt.Key_2: self._btn2_clicked,
-            Qt.Key_3: self._btn3_clicked,
-            Qt.Key_4: self._btn4_clicked,
-            Qt.Key_5: self._btn5_clicked,
-            Qt.Key_6: self._btn6_clicked,
-            Qt.Key_7: self._btn7_clicked,
-            Qt.Key_8: self._btn8_clicked,
-            Qt.Key_9: self._btn9_clicked,
-            Qt.Key_Plus: self._btn_plus_clicked,
-            Qt.Key_Minus: self._btn_minus_clicked,
-            Qt.Key_Slash: self._btn_slash_clicked,
-            Qt.Key_Asterisk: self._btn_asterisk_clicked,
-            Qt.Key_Percent: self._btn_percent_clicked,
-            Qt.Key_Equal: self._btn_equal_clicked,
-            Qt.Key_Return: self._btn_equal_clicked,
-            Qt.Key_Backspace: self._btn_backspace_clicked,
-            Qt.Key_Period: self._btn_period_clicked,
-            Qt.Key_Comma: self._btn_period_clicked,
-            Qt.Key_Escape: self._btn_escape_clicked,
+            Qt.Key.Key_0: self._btn0_clicked,
+            Qt.Key.Key_1: self._btn1_clicked,
+            Qt.Key.Key_2: self._btn2_clicked,
+            Qt.Key.Key_3: self._btn3_clicked,
+            Qt.Key.Key_4: self._btn4_clicked,
+            Qt.Key.Key_5: self._btn5_clicked,
+            Qt.Key.Key_6: self._btn6_clicked,
+            Qt.Key.Key_7: self._btn7_clicked,
+            Qt.Key.Key_8: self._btn8_clicked,
+            Qt.Key.Key_9: self._btn9_clicked,
+            Qt.Key.Key_Plus: self._btn_plus_clicked,
+            Qt.Key.Key_Minus: self._btn_minus_clicked,
+            Qt.Key.Key_Slash: self._btn_slash_clicked,
+            Qt.Key.Key_Asterisk: self._btn_asterisk_clicked,
+            Qt.Key.Key_Percent: self._btn_percent_clicked,
+            Qt.Key.Key_Equal: self._btn_equal_clicked,
+            Qt.Key.Key_Return: self._btn_equal_clicked,
+            Qt.Key.Key_Backspace: self._btn_backspace_clicked,
+            Qt.Key.Key_Period: self._btn_period_clicked,
+            Qt.Key.Key_Comma: self._btn_period_clicked,
+            Qt.Key.Key_Escape: self._btn_escape_clicked,
         }
 
     def _key_pressed(self, key: Qt.Key) -> None:
@@ -107,7 +110,9 @@ class MainQtView(QtView):
 
     def _blink_lcd(self) -> None:
         """Blink the displayed LCD value."""
-        blink = BlinkLcdThread(self.ui.lcdDisplay)
+        blink = BlinkLcdThread(
+            self.ui.lcdDisplay, float(self._configs["lcd.blink.delay"])
+        )
         blink.start()
         self._display_text = ""
 
@@ -271,5 +276,7 @@ class MainQtView(QtView):
     def _btn_comma_clicked(self) -> None:
         log.debug("Clicked: ,")
         if self._dec_sep not in self._display_text:
-            self._display_text += self._dec_sep if self._display_text else "0" + self._dec_sep
+            self._display_text += (
+                self._dec_sep if self._display_text else "0" + self._dec_sep
+            )
         self._display(self._display_text)

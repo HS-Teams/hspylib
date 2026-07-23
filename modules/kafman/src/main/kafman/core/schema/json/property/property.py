@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-   @project: HsPyLib-Kafman
-   @package: kafman.core.schema.json.property
-      @file: property.py
-   @created: Fri, 1 Jul 2022
-    @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: "https://github.com/yorevs/hspylib")
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+"""Intermediate JSON Schema property representation."""
 
-   Copyright·(c)·2024,·HSPyLib
-"""
+from __future__ import annotations
 
-from hspylib.core.exception.exceptions import InvalidArgumentError
-from hspylib.core.namespace import Namespace
-from hspylib.core.preconditions import check_and_get
+from typing import Any, Optional
+
 from kafman.core.schema.json.json_type import JsonType
-from typing import Any, List, Union
+from kafman.core.schema.widget_utils import MISSING
 
 
 class Property:
-    """TODO"""
-
     def __init__(
-        self, name: str, title: str, description: str, s_type: JsonType, default: Any = None, required: bool = True
+        self,
+        name: str,
+        title: str,
+        description: str,
+        s_type: JsonType,
+        default: Any = MISSING,
+        required: bool = True,
+        *,
+        nullable: bool = False,
+        schema: Optional[dict[str, Any]] = None,
     ):
         self.name = name
         self.title = title
@@ -32,14 +30,11 @@ class Property:
         self.type = s_type
         self.default = default
         self.required = required
-        self.all_properties = None
-        self.extras = Namespace("SchemaAttributes")
+        self.nullable = nullable
+        self.schema = schema or {}
+        self.all_properties: tuple["Property", ...] = ()
+        self.items: dict[str, Any] = {}
+        self.enum: list[Any] = list(self.schema.get("enum", []))
 
-    def set_items(self, p_items: Union[List[str], dict]) -> None:
-        """TODO"""
-        if isinstance(p_items, list):
-            self.extras.a_items = p_items
-        elif isinstance(p_items, dict):
-            self.extras.enum = check_and_get("enum", p_items, False, [])
-        else:
-            raise InvalidArgumentError(f'Invalid property "items" type: {type(p_items)}')
+    def set_items(self, items: dict[str, Any]) -> None:
+        self.items = items

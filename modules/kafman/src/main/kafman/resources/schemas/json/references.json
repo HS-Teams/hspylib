@@ -19,11 +19,14 @@
     },
     "desert": {
       "type": "array",
-      "items": [
-        "chocolate",
-        "cup-cake",
-        "ice-cream"
-      ]
+      "items": {
+        "type": "string",
+        "enum": [
+          "chocolate",
+          "cup-cake",
+          "ice-cream"
+        ]
+      }
     }
   },
   "$defs": {

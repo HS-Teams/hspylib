@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Hqt
-   @package: hqt.promotions
-      @file: hframe.py
-   @created: Tue, 4 May 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Hqt
+@package: hqt.promotions
+   @file: hframe.py
+@created: Tue, 4 May 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QKeyEvent
-from PyQt5.QtWidgets import QFrame
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QFrame
+from typing import Optional
 
 
 class HFrame(QFrame):
@@ -23,6 +24,8 @@ class HFrame(QFrame):
 
     keyPressed = pyqtSignal(int)
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
+    def keyPressEvent(self, event: Optional[QKeyEvent]) -> None:
         """TODO"""
-        self.keyPressed.emit(event.key())
+        if event is not None:
+            self.keyPressed.emit(int(event.key()))
+        super().keyPressEvent(event)

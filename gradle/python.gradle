@@ -108,9 +108,11 @@ task compileQrc(type: Task) {
       include "**/*.qrc"
     }.each { File file ->
         if (verbose) println "Compiling Qt Resource -> ${file.name}"
+        def output = new File(file.parentFile, file.name.replaceFirst(/\.qrc$/, '_rc.py'))
         exec {
-          commandLine project.pyrcc, file.path
+          commandLine project.pyrcc, '-g', 'python', file.path, '-o', output.path
         }
+        output.text = output.text.replace('from PySide6 import QtCore', 'from PyQt6 import QtCore')
       }
   }
 }

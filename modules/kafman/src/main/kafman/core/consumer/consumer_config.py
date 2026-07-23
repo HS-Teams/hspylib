@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.core.consumer
-      @file: consumer_config.py
-   @created: Thu, 5 Aug 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.core.consumer
+   @file: consumer_config.py
+@created: Thu, 5 Aug 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
 from abc import ABC
@@ -42,7 +42,7 @@ class ConsumerConfig(ABC):
                 cls.BOOTSTRAP_SERVERS: "localhost:9092",
                 cls.GROUP_ID: "kafman_testing_group",
                 cls.CLIENT_ID: "kafman_client_1",
-                cls.ENABLE_AUTO_COMMIT: True,
+                cls.ENABLE_AUTO_COMMIT: False,
                 cls.SESSION_TIMEOUT_MS: 6000,
                 cls.AUTO_OFFSET_RESET: "earliest",
             }

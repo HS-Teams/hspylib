@@ -2,26 +2,30 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Kafman
-   @package: kafman.views.dialogs
-      @file: settings_dialog.py
-   @created: Wed, 8 Jun 2022
-    @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: "https://github.com/yorevs/hspylib")
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Kafman
+@package: kafman.views.dialogs
+   @file: settings_dialog.py
+@created: Wed, 8 Jun 2022
+ @author: "<B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: "https://github.com/yorevs/hspylib")
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
 from clitt.core.icons.font_awesome.form_icons import FormIcons
-from hspylib.core.collection_filter import CollectionFilter, ElementFilter, FilterCondition
+from hspylib.core.collection_filter import (
+    CollectionFilter,
+    ElementFilter,
+    FilterCondition,
+)
 from hspylib.core.preconditions import check_not_none
 from kafman.__classpath__ import classpath
-from PyQt5 import uic
-from PyQt5.QtCore import pyqtSignal, QObject, Qt
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QDialogButtonBox, QWidget
-from typing import Optional, Union
+from PyQt6 import uic
+from PyQt6.QtCore import pyqtSignal, QObject, Qt
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QDialogButtonBox, QWidget
+from typing import Dict, Optional, Union, cast
 
 import random
 import string
@@ -41,17 +45,19 @@ class FiltersDialog(QObject):
         self.dialog, self.ui = base_class(parent), ui_class()
         self.ui.setupUi(self.dialog)
         self._filters = filters
-        self._lookup = {}
+        self._lookup: Dict[str, str] = {}
         self._setup_controls()
 
     def _setup_controls(self) -> None:
         """TODO"""
         self.filtersChanged.connect(self._sync_filters)
-        self.dialog.setWindowModality(Qt.ApplicationModal)
+        self.dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.dialog.setModal(True)
         self._set_font()
         self.ui.le_filter_value.setPlaceholderText("Type in the filter value")
-        self.ui.btn_box.button(QDialogButtonBox.Discard).setText("Remove")
+        self.ui.btn_box.button(QDialogButtonBox.StandardButton.Discard).setText(
+            "Remove"
+        )
         self.ui.btn_box.clicked.connect(self._button_clicked)
         self.ui.tbtn_clear_filters.setText(FormIcons.CLEAR.value)
         self.ui.tbtn_clear_filters.clicked.connect(self._clear_filters)
@@ -62,8 +68,17 @@ class FiltersDialog(QObject):
 
     def _set_font(self) -> None:
         """TODO"""
-        widgets = list(filter(lambda o: hasattr(getattr(self.ui, o), "setFont"), vars(self.ui)))
-        list(map(lambda w: getattr(self.ui, w).setFont(QFont("DroidSansMono Nerd Font", 13)), widgets))
+        widgets = list(
+            filter(lambda o: hasattr(getattr(self.ui, o), "setFont"), vars(self.ui))
+        )
+        list(
+            map(
+                lambda w: getattr(self.ui, w).setFont(
+                    QFont("DroidSansMono Nerd Font", 13)
+                ),
+                widgets,
+            )
+        )
 
     def show(self):
         """TODO"""
@@ -72,9 +87,9 @@ class FiltersDialog(QObject):
     def _button_clicked(self, button) -> None:
         """TODO"""
         role = self.ui.btn_box.buttonRole(button)
-        if role == QDialogButtonBox.ApplyRole:
+        if role == QDialogButtonBox.ButtonRole.ApplyRole:
             self._apply_filter()
-        elif role == QDialogButtonBox.DestructiveRole:
+        elif role == QDialogButtonBox.ButtonRole.DestructiveRole:
             self._discard_filter()
 
     def _field_changed(self, el_name: str) -> None:
@@ -121,7 +136,12 @@ class FiltersDialog(QObject):
         el_name = self.ui.cmb_filter_field.currentText()
         el_value = self._get_filter_value(el_name)
         if el_value:
-            condition = FilterCondition.value_of(self.ui.cmb_filter_condition.currentText().upper().replace(" ", "_"))
+            condition = cast(
+                FilterCondition,
+                FilterCondition.value_of(
+                    self.ui.cmb_filter_condition.currentText().upper().replace(" ", "_")
+                ),
+            )
             name = f"F:{el_name}:{''.join(random.choice(string.ascii_lowercase) for i in range(10))}"
             self._filters.apply_filter(name, el_name, condition, el_value)
             self.filtersChanged.emit(str(self._filters))
@@ -140,6 +160,6 @@ class FiltersDialog(QObject):
         try:
             if el_name in ["timestamp", "partition", "offset"]:
                 return int(str_value)
-        except TypeError:
-            pass
+        except (TypeError, ValueError):
+            return None
         return str_value

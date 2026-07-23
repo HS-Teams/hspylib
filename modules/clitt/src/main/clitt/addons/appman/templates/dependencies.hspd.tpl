@@ -18,5 +18,5 @@ package: getkey, version: 0.6.5, space: user
 package: PyMySQL, version: 1.0.2, space: user
 package: pyparsing, version: 3.0.9, space: user
 package: pyperclip, version: 1.8.2, space: user
-package: PyQt5, version: 5.15.6, space: user
+package: PyQt6, version: 6.11.0, space: user
 package: PyYAML, version: 6.0, space: user

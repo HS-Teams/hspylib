@@ -25,6 +25,33 @@ String detectPython() {
   return pythonHome
 }
 
+String detectQtResourceCompiler() {
+  def override = System.getenv('QT_RCC')
+  if (override != null && !override.isEmpty()) {
+    return override
+  }
+
+  def knownPaths = [
+    '/opt/homebrew/opt/qtbase/share/qt/libexec/rcc',
+    '/opt/homebrew/opt/qt/share/qt/libexec/rcc',
+    '/usr/local/opt/qtbase/share/qt/libexec/rcc',
+    '/usr/local/opt/qt/share/qt/libexec/rcc'
+  ]
+  def knownCompiler = knownPaths.find { new File(it).canExecute() }
+  if (knownCompiler != null) {
+    return knownCompiler
+  }
+
+  def output = new ByteArrayOutputStream()
+  exec {
+    commandLine 'sh', '-c', 'command -v rcc'
+    standardOutput = output
+    ignoreExitValue = true
+  }
+  def compiler = output.toString().trim()
+  return compiler.isEmpty() ? 'rcc' : compiler
+}
+
 
 /* Project file definitions */
 ext {
@@ -33,7 +60,7 @@ ext {
   os = OperatingSystem.current().getName()
   python_ver = 'python3.11'
   python = detectPython()
-  pyrcc = 'pyrcc5'
+  pyrcc = detectQtResourceCompiler()
 }
 
 /* Version compatibility mode map */

@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Clitt
-   @package: clitt.addons.appman
-      @file: appman.py
-   @created: Tue, 4 May 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Clitt
+@package: clitt.addons.appman
+   @file: appman.py
+@created: Tue, 4 May 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
+
 from clitt.addons.appman.appman_enums import AppExtension, AppType
 from clitt.core.term.terminal import Terminal
 from clitt.core.tui.minput.input_validator import InputValidator
@@ -48,19 +49,16 @@ class AppManager(metaclass=Singleton):
     TEMPLATES = HERE / "templates"
 
     # The general gradle properties
-    GRADLE_PROPS = dedent(
-        """
+    GRADLE_PROPS = dedent("""
         app_name    = '{}'
         app_version = '{}'
 
         pythonVersion=3
-        pyrccVersion=5
 
         author="<Author>")
         mailTo="<MailTo")
         siteUrl="<SiteUrl>")
-    """
-    )
+    """)
 
     @staticmethod
     def prompt() -> Namespace:
@@ -105,7 +103,13 @@ class AppManager(metaclass=Singleton):
         self._init_gradle_flag = False
         self._init_git_flag = False
 
-    def create(self, app_name: str, app_type: AppType, app_ext: List[AppExtension], dest_dir: str) -> None:
+    def create(
+        self,
+        app_name: str,
+        app_type: AppType,
+        app_ext: List[AppExtension],
+        dest_dir: str,
+    ) -> None:
         """Create the application based on the parameters.
         :param app_name the application name.
         :param app_type the application type (qt-app, widgets, ...)
@@ -114,7 +118,9 @@ class AppManager(metaclass=Singleton):
         """
         sysout(f'Creating "{app_name}" at {dest_dir}')
         try:
-            check_argument(os.path.exists(dest_dir), "Destination not found: {}", dest_dir)
+            check_argument(
+                os.path.exists(dest_dir), "Destination not found: {}", dest_dir
+            )
             self._app_name = app_name
             if app_type == AppType.APP:
                 self._app_dir = f"{dest_dir}/{app_name}"
@@ -142,7 +148,9 @@ class AppManager(metaclass=Singleton):
         self._create_base_app_struct(app_name)
         self._mkfile(
             f"src/main/{self._app_name}/__main__.py",
-            (self.TEMPLATES / "main.py.tpl").read_text().replace("%APP_NAME%", self._app_name),
+            (self.TEMPLATES / "main.py.tpl")
+            .read_text()
+            .replace("%APP_NAME%", self._app_name),
         )
         self._apply_extensions(app_name, app_ext)
 
@@ -161,11 +169,15 @@ class AppManager(metaclass=Singleton):
         self._mkdir(f"src/main/{self._app_name}/view")
         self._mkfile(
             f"src/main/{self._app_name}/view/main_qt_view.py",
-            (self.TEMPLATES / "main_qt_view.py.tpl").read_text().replace("%APP_NAME%", self._app_name),
+            (self.TEMPLATES / "main_qt_view.py.tpl")
+            .read_text()
+            .replace("%APP_NAME%", self._app_name),
         )
         self._mkfile(
             f"src/main/{self._app_name}/__main__.py",
-            (self.TEMPLATES / "main_qt.py.tpl").read_text().replace("%APP_NAME%", self._app_name),
+            (self.TEMPLATES / "main_qt.py.tpl")
+            .read_text()
+            .replace("%APP_NAME%", self._app_name),
         )
         self._apply_extensions(app_name, app_ext)
 
@@ -191,18 +203,36 @@ class AppManager(metaclass=Singleton):
         self._mkfile("MANIFEST.in")
         self._mkdir("src")
         self._mkdir("src/test")
-        self._mkfile("src/test/test_main.py", (self.TEMPLATES / "test_main.py.tpl").read_text())
+        self._mkfile(
+            "src/test/test_main.py", (self.TEMPLATES / "test_main.py.tpl").read_text()
+        )
         self._mkdir("src/test/resources")
-        self._mkfile("src/test/resources/application-test.properties", "# Main test application property file")
+        self._mkfile(
+            "src/test/resources/application-test.properties",
+            "# Main test application property file",
+        )
         self._mkdir("src/main")
         self._mkdir(f"src/main/{self._app_name}")
-        self._mkfile(f"src/main/{self._app_name}/__classpath__.py", (self.TEMPLATES / "classpath.py.tpl").read_text())
+        self._mkfile(
+            f"src/main/{self._app_name}/__classpath__.py",
+            (self.TEMPLATES / "classpath.py.tpl").read_text(),
+        )
         self._mkfile(f"src/main/{self._app_name}/.version", str(INITIAL_REVISION))
         self._mkfile(f"src/main/{self._app_name}/welcome.txt", WELCOME_MESSAGE)
         self._mkdir(f"src/main/{self._app_name}/resources")
-        self._mkfile(f"src/main/{self._app_name}/resources/application.properties", "# Main application property file")
-        self._mkfile(".env", "# Type in here the environment variables your app requires")
-        self._mkfile("run.sh", (self.TEMPLATES / "run.sh.tpl").read_text().replace("%APP_NAME%", self._app_name))
+        self._mkfile(
+            f"src/main/{self._app_name}/resources/application.properties",
+            "# Main application property file",
+        )
+        self._mkfile(
+            ".env", "# Type in here the environment variables your app requires"
+        )
+        self._mkfile(
+            "run.sh",
+            (self.TEMPLATES / "run.sh.tpl")
+            .read_text()
+            .replace("%APP_NAME%", self._app_name),
+        )
         self._chmod("run.sh")
 
     def _mkdir(self, folder_name: str = "") -> None:
@@ -254,9 +284,12 @@ class AppManager(metaclass=Singleton):
         """Initialize the as a gradle project.
         :param app_name the application name.
         """
-        sysout(f'Initializing "{app_name}" gradle project [press ENTER to continue] ...')
+        sysout(
+            f'Initializing "{app_name}" gradle project [press ENTER to continue] ...'
+        )
         output, err_out, exit_code = Terminal.shell_exec(
-            f"gradle init --project-name {app_name} --type basic --dsl groovy", cwd=self._app_dir
+            f"gradle init --project-name {app_name} --type basic --dsl groovy",
+            cwd=self._app_dir,
         )
         sysout(f"Gradle execution result: {exit_code}%EOL%{output}{err_out}%EOL%")
 
@@ -270,14 +303,24 @@ class AppManager(metaclass=Singleton):
             self._download_gradle_ext("pypi-publish.gradle")
             self._download_gradle_ext("python.gradle")
             sysout("Creating gradle files")
-            self._mkfile("gradle.properties", self.GRADLE_PROPS.format(self._app_name, INITIAL_REVISION).strip())
             self._mkfile(
-                "build.gradle", (self.TEMPLATES / "build.gradle.tpl").read_text().replace("%APP_NAME%", self._app_name)
+                "gradle.properties",
+                self.GRADLE_PROPS.format(self._app_name, INITIAL_REVISION).strip(),
             )
-            self._mkfile("dependencies.hspd", (self.TEMPLATES / "dependencies.hspd.tpl").read_text())
+            self._mkfile(
+                "build.gradle",
+                (self.TEMPLATES / "build.gradle.tpl")
+                .read_text()
+                .replace("%APP_NAME%", self._app_name),
+            )
+            self._mkfile(
+                "dependencies.hspd",
+                (self.TEMPLATES / "dependencies.hspd.tpl").read_text(),
+            )
             sysout("Building gradle project, please wait ...")
             output, err_out, exit_code = Terminal.shell_exec(
-                "./gradlew buildOnly", cwd=self._app_dir)
+                "./gradlew buildOnly", cwd=self._app_dir
+            )
             sysout(f"Gradle execution result: {output}{err_out}")
 
         return exit_code == ExitStatus.SUCCESS
@@ -292,7 +335,8 @@ class AppManager(metaclass=Singleton):
             sysout("Creating first commit")
             Terminal.shell_exec("git add .", cwd=self._app_dir)
             output, err_out, exit_code = Terminal.shell_exec(
-                'git commit -m "First commit [@HsPyLib]"', cwd=self._app_dir)
+                'git commit -m "First commit [@HsPyLib]"', cwd=self._app_dir
+            )
             sysout(f"Git commit result: {exit_code}%EOL%{output}{err_out}%EOL%")
 
         return exit_code == ExitStatus.SUCCESS
@@ -302,6 +346,12 @@ class AppManager(metaclass=Singleton):
         :param gradle_ext the HsPyLib gradle extension to download.
         """
         urllib3.disable_warnings()  # Disable this warning because we trust our project repo
-        resp = get(f"https://raw.githubusercontent.com/yorevs/hspylib/master/gradle/{gradle_ext}")
-        check_argument(resp.status_code == HttpCode.OK, "Unable to download extension: '{}'", gradle_ext)
+        resp = get(
+            f"https://raw.githubusercontent.com/yorevs/hspylib/master/gradle/{gradle_ext}"
+        )
+        check_argument(
+            resp.status_code == HttpCode.OK,
+            "Unable to download extension: '{}'",
+            gradle_ext,
+        )
         self._mkfile(f"gradle/{gradle_ext}", resp.body)

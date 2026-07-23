@@ -2,18 +2,18 @@
 # -*- coding: utf-8 -*-
 
 """
-   @project: HsPyLib-Hqt
-   @package: hqt.promotions
-      @file: hcombobox.py
-   @created: Wed, 30 Jun 2021
-    @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
-      @site: https://github.com/yorevs/hspylib
-   @license: MIT - Please refer to <https://opensource.org/licenses/MIT>
+@project: HsPyLib-Hqt
+@package: hqt.promotions
+   @file: hcombobox.py
+@created: Wed, 30 Jun 2021
+ @author: <B>H</B>ugo <B>S</B>aporetti <B>J</B>unior
+   @site: https://github.com/yorevs/hspylib
+@license: MIT - Please refer to <https://opensource.org/licenses/MIT>
 
-   Copyright·(c)·2024,·HSPyLib
+Copyright·(c)·2024,·HSPyLib
 """
 
-from PyQt5.QtWidgets import QComboBox
+from PyQt6.QtWidgets import QComboBox
 
 
 class HComboBox(QComboBox):
