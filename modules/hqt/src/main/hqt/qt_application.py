@@ -40,12 +40,15 @@ class QtApplication(Application):
         epilog: Optional[str] = None,
         resource_dir: Optional[str] = None,
         log_dir: Optional[str] = None,
+        font_path: Optional[Path] = None,
     ):
         super().__init__(
             name, version, description, usage, epilog, resource_dir, log_dir
         )
         app_title = titlecase(name)
         self.qapp = QApplication.instance() or QApplication(sys.argv)
+        if font_path:
+            self.set_application_font(font_path)
         self.main_view = main_view()
         self.main_view.window.setWindowTitle(f"{app_title} v{str(version)}")
         self.qapp.setApplicationDisplayName(app_title)
@@ -64,13 +67,20 @@ class QtApplication(Application):
     def _setup_arguments(self) -> None:
         pass
 
-    def set_application_font(self, font_path: Path) -> None:
-        """TODO"""
-        check_argument(font_path.exists(), f"Could not find font at: {str(font_path)}")
-        font_id = QFontDatabase.addApplicationFont(str(font_path))
+    def set_application_font(self, font_path: Path) -> QFont:
+        """Load and apply a bundled font to the whole Qt application."""
+        font_path = Path(font_path)
+        check_argument(font_path.is_file(), f"Could not find font at: {str(font_path)}")
+        # Qt 6 can reject valid bundled OTF files when loading them by path on
+        # macOS. Loading the same data from memory is portable and also works
+        # for fonts stored inside an installed Python package.
+        font_id = QFontDatabase.addApplicationFontFromData(font_path.read_bytes())
+        check_state(font_id >= 0, "Could not load font from: {}", font_path)
         families = QFontDatabase.applicationFontFamilies(font_id)
-        check_state(families is not None and len(families) == 1)
-        self.qapp.setFont(QFont(families[0], 14))
+        check_state(bool(families), "Font has no registered families: {}", font_path)
+        font = QFont(families[0], 14)
+        self.qapp.setFont(font)
+        return font
 
     def set_application_icon(self, icon_path: Path) -> None:
         """TODO"""

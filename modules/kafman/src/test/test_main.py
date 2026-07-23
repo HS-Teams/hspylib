@@ -16,10 +16,12 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from confluent_kafka import TopicPartition
+from hqt.qt_application import QtApplication
 from hqt.promotions.hlistwidget import HListWidget
 from hqt.promotions.hstacked_widget import HStackedWidget
 from hspylib.core.exception.exceptions import InvalidInputError
 from hspylib.core.zoned_datetime import now_ms
+from kafman.__main__ import Main
 from kafman.core.consumer.consumer_worker import ConsumerWorker
 from kafman.core.producer.producer_worker import ProducerWorker
 from kafman.core.schema.avro.avro_schema import AvroSchema
@@ -32,6 +34,7 @@ from kafman.core.statistics_worker import StatisticsWorker
 from kafman.views.dialogs.settings_dialog import SettingsDialog
 from kafman.views.main_qt_view import MainQtView
 from kafman.views.promotions.form_area import FormArea
+from PyQt6.QtGui import QFontInfo
 from PyQt6.QtWidgets import QApplication, QWidget
 
 SCHEMAS = Path(__file__).parents[1] / "main" / "kafman" / "resources" / "schemas"
@@ -168,6 +171,18 @@ class RuntimeRegressionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
+
+    def test_bundled_droid_font_loads_with_qt6(self) -> None:
+        qt_app = object.__new__(QtApplication)
+        qt_app.qapp = self.app
+        original_font = self.app.font()
+        try:
+            font = qt_app.set_application_font(Main.FONT_PATH)
+            font_info = QFontInfo(font)
+            self.assertEqual("DroidSansMono Nerd Font", font_info.family())
+            self.assertTrue(font_info.fixedPitch())
+        finally:
+            self.app.setFont(original_font)
 
     def test_settings_dialog_parses_embedded_properties(self) -> None:
         current = {}

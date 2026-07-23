@@ -55,8 +55,8 @@ class Main(QtApplication):
             self.VERSION,
             description,
             resource_dir=self.RESOURCE_DIR,
+            font_path=self.FONT_PATH,
         )
-        self.set_application_font(self.FONT_PATH)
         self.set_application_icon(self.APP_ICON_PATH)
         log.info(dedent(f"""
         {self._app_name} v{self._app_version}
