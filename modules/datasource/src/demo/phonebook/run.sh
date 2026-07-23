@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
-export PYTHONPATH="../"
-python3 __main__.py
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || exit 1
+
+exec "${SCRIPT_DIR}/../run.sh" phonebook "$@"
