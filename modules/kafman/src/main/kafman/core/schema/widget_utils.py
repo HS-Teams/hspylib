@@ -14,8 +14,9 @@ from hqt.promotions.hcombobox import HComboBox
 from hqt.promotions.hlistwidget import HListWidget
 from hspylib.core.exception.exceptions import InvalidStateError
 from PyQt6.QtCore import QRegularExpression, Qt
-from PyQt6.QtGui import QFont, QRegularExpressionValidator
+from PyQt6.QtGui import QRegularExpressionValidator
 from PyQt6.QtWidgets import (
+    QAbstractButton,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -38,6 +39,9 @@ MISSING = _MissingValue()
 InputValue: TypeAlias = Any
 InputWidget: TypeAlias = QWidget
 WidgetType: TypeAlias = type[QWidget]
+CONTROL_MIN_HEIGHT = 36
+MULTILINE_MIN_HEIGHT = 96
+MULTILINE_MAX_HEIGHT = 140
 
 
 class FieldEditor(QWidget):
@@ -66,11 +70,45 @@ class FieldEditor(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
         if self._mode.count() > 1:
-            self._mode.setMaximumWidth(90)
-            layout.addWidget(self._mode)
+            self._mode.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+            self._mode.setSizePolicy(
+                QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
+            )
+            self._mode.setMinimumHeight(
+                max(CONTROL_MIN_HEIGHT, self._mode.minimumSizeHint().height())
+            )
+            self._mode.setToolTip("Choose whether to provide, omit, or null this field")
+            mode_alignment = (
+                Qt.AlignmentFlag.AlignTop
+                if self.is_multiline()
+                else Qt.AlignmentFlag.AlignVCenter
+            )
+            layout.addWidget(
+                self._mode,
+                0,
+                Qt.AlignmentFlag.AlignLeft | mode_alignment,
+            )
+        else:
+            self._mode.hide()
         if input_widget is not None:
-            layout.addWidget(input_widget)
+            if isinstance(input_widget, QCheckBox):
+                layout.addWidget(
+                    input_widget,
+                    0,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                )
+                layout.addStretch(1)
+            elif isinstance(input_widget, QAbstractButton):
+                layout.addWidget(
+                    input_widget,
+                    0,
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                )
+                layout.addStretch(1)
+            else:
+                layout.addWidget(input_widget, 1)
         else:
             layout.addWidget(QLabel("null", self))
 
@@ -86,6 +124,12 @@ class FieldEditor(QWidget):
         self._mode.setCurrentIndex(max(0, index))
         self._mode.currentIndexChanged.connect(self._sync_enabled)
         self._sync_enabled()
+        self.setMinimumHeight(max(CONTROL_MIN_HEIGHT, self.minimumSizeHint().height()))
+        if self.is_multiline():
+            self.setMaximumHeight(MULTILINE_MAX_HEIGHT)
+            self.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+            )
 
     def mode(self) -> str:
         return str(self._mode.currentData())
@@ -94,6 +138,9 @@ class FieldEditor(QWidget):
         index = self._mode.findData(mode)
         if index >= 0:
             self._mode.setCurrentIndex(index)
+
+    def is_multiline(self) -> bool:
+        return isinstance(self.input_widget, (HListWidget, QPlainTextEdit))
 
     def _sync_enabled(self) -> None:
         if self.input_widget is not None:
@@ -154,7 +201,8 @@ class WidgetUtils(ABC):
             input_widget, nullable=nullable, optional=optional, default=default
         )
         editor.setToolTip(doc or "")
-        editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        if not editor.is_multiline():
+            editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         return editor
 
     @classmethod
@@ -198,9 +246,9 @@ class WidgetUtils(ABC):
     def setup_widget_commons(widget: QWidget, tooltip: Optional[str]) -> QWidget:
         widget.setToolTip(tooltip or "")
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        widget.setStyleSheet("QWidget {padding: 5px;}")
-        widget.setFont(QFont("DroidSansMono Nerd Font", 14))
-        widget.setMinimumHeight(35)
+        widget.setMinimumHeight(
+            max(CONTROL_MIN_HEIGHT, widget.minimumSizeHint().height())
+        )
         return widget
 
     @staticmethod
@@ -231,14 +279,22 @@ class WidgetUtils(ABC):
         widget.set_editable()
         widget.set_selectable()
         widget.set_context_menu_enable()
-        return WidgetUtils.setup_widget_commons(widget, tooltip)
+        WidgetUtils.setup_widget_commons(widget, tooltip)
+        widget.setMinimumHeight(MULTILINE_MIN_HEIGHT)
+        widget.setMaximumHeight(MULTILINE_MAX_HEIGHT)
+        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        return widget
 
     @staticmethod
     def setup_checkbox(
         widget: QCheckBox, tooltip: Optional[str] = None, default: Any = False
     ) -> QWidget:
         widget.setChecked(bool(default) if default is not None else False)
-        return WidgetUtils.setup_widget_commons(widget, tooltip)
+        widget.setText("True")
+        widget.setAccessibleName("Boolean value")
+        WidgetUtils.setup_widget_commons(widget, tooltip)
+        widget.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        return widget
 
     @staticmethod
     def setup_spin_box(
@@ -260,7 +316,8 @@ class WidgetUtils(ABC):
             maximum -= 1
         widget.setRange(minimum, maximum)
         widget.setValue(int(default) if default is not None else max(0, minimum))
-        widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        widget.setAlignment(Qt.AlignmentFlag.AlignLeft)
         return WidgetUtils.setup_widget_commons(widget, tooltip)
 
     @staticmethod
@@ -282,7 +339,8 @@ class WidgetUtils(ABC):
         widget.setValue(
             float(default) if default is not None else min(max(0.0, minimum), maximum)
         )
-        widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        widget.setAlignment(Qt.AlignmentFlag.AlignLeft)
         return WidgetUtils.setup_widget_commons(widget, tooltip)
 
     @staticmethod
@@ -304,6 +362,7 @@ class WidgetUtils(ABC):
             widget.setText(f"base64:{base64.b64encode(default).decode('ascii')}")
         else:
             widget.setText("" if default is None else str(default))
+        widget.setTextMargins(6, 0, 6, 0)
         return WidgetUtils.setup_widget_commons(widget, tooltip)
 
     @staticmethod
@@ -317,8 +376,11 @@ class WidgetUtils(ABC):
             default = {} if field_type in {"map", "record", "object"} else None
         widget.setPlaceholderText(tooltip or "Enter valid JSON")
         widget.setPlainText("" if default is None else json.dumps(default, indent=2))
-        widget.setMinimumHeight(90)
-        return WidgetUtils.setup_widget_commons(widget, tooltip)
+        WidgetUtils.setup_widget_commons(widget, tooltip)
+        widget.setMinimumHeight(MULTILINE_MIN_HEIGHT)
+        widget.setMaximumHeight(MULTILINE_MAX_HEIGHT)
+        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        return widget
 
     @classmethod
     def editor_value(

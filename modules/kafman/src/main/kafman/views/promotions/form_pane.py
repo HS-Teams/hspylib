@@ -18,13 +18,19 @@ from hqt.promotions.hframe import HFrame
 from hqt.promotions.hstacked_widget import HStackedWidget
 from hspylib.core.preconditions import check_argument, check_not_none
 from kafman.core.schema.schema_field import SchemaField
-from kafman.core.schema.widget_utils import InputWidget, MISSING, WidgetUtils
-from kafman.views.promotions.form_area import FormArea
+from kafman.core.schema.widget_utils import (
+    FieldEditor,
+    InputWidget,
+    MISSING,
+    WidgetUtils,
+)
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -53,17 +59,27 @@ class FormPane(HFrame):
         self._name = form_name
         self._parent_form = parent_form
         self._form_frame = QFrame(self)
-        self._form_area = FormArea(self)
         self._box = QVBoxLayout(self)
         self._grid = QGridLayout(self._form_frame)
 
         self.setObjectName(form_name)
         self.setContentsMargins(0, 0, 0, 0)
         self.setFrameStyle(int(QFrame.Shape.StyledPanel) | int(QFrame.Shadow.Raised))
-        self._box.addWidget(self._form_area)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._box.setContentsMargins(16, 12, 16, 12)
+        self._box.setSpacing(0)
+        self._box.addWidget(self._form_frame)
         self._form_frame.setFrameStyle(int(QFrame.Shape.NoFrame))
         self._form_frame.setContentsMargins(0, 0, 0, 0)
-        self._form_area.setWidget(self._form_frame)
+        self._form_frame.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setHorizontalSpacing(8)
+        self._grid.setVerticalSpacing(8)
+        self._grid.setColumnMinimumWidth(self.REQUIRED_COLUMN, 16)
+        self._grid.setColumnStretch(self.FIELD_COLUMN, 1)
+        self._grid.setAlignment(Qt.AlignmentFlag.AlignTop)
 
     def grid(self) -> QGridLayout:
         return self._grid
@@ -93,8 +109,22 @@ class FormPane(HFrame):
 
         check_not_none(widget)
         widget.setObjectName(field_name)
-        self._grid.addWidget(label, row, self.LABEL_COLUMN)
-        self._grid.addWidget(req_label, row, self.REQUIRED_COLUMN)
+        row_alignment = (
+            Qt.AlignmentFlag.AlignTop
+            if isinstance(widget, FieldEditor) and widget.is_multiline()
+            else Qt.AlignmentFlag.AlignVCenter
+        )
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | row_alignment)
+        label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        req_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | row_alignment)
+        req_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self._grid.addWidget(label, row, self.LABEL_COLUMN, row_alignment)
+        self._grid.addWidget(
+            req_label,
+            row,
+            self.REQUIRED_COLUMN,
+            Qt.AlignmentFlag.AlignHCenter | row_alignment,
+        )
         self._grid.addWidget(widget, row, self.FIELD_COLUMN)
         if field is not None:
             self._schema_fields[field_name] = field
@@ -116,7 +146,6 @@ class FormPane(HFrame):
         fill_button.clicked.connect(lambda: form_stack.slide_to_index(index))
         WidgetUtils.setup_widget_commons(fill_button, "Click to fill the form")
         fill_button.setMaximumWidth(100)
-        fill_button.setMinimumHeight(30)
         fill_button.setDefault(False)
         fill_button.setAutoDefault(False)
         editor = field.wrap_nested_widget(fill_button)
@@ -125,12 +154,11 @@ class FormPane(HFrame):
     def add_back_button(self, back_index: int, form_stack: HStackedWidget) -> None:
         """TODO"""
 
-        row = self._grid.rowCount() + 1
+        row = self._grid.rowCount()
         back_button = QPushButton(FormIcons.ARROW_LEFT.value + " Back")
         back_button.clicked.connect(lambda: form_stack.slide_to_index(back_index))
         WidgetUtils.setup_widget_commons(back_button, "Click to go to previous form")
         back_button.setMaximumWidth(100)
-        back_button.setMinimumHeight(30)
         back_button.setDefault(False)
         back_button.setAutoDefault(False)
         self._grid.addWidget(back_button, row, self.LABEL_COLUMN)

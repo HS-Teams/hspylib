@@ -50,6 +50,8 @@ class FormArea(QScrollArea):
             )
         super().setWidget(widget)
         self._form = widget
+        self.horizontalScrollBar().setValue(0)
+        self.verticalScrollBar().setValue(0)
 
     def get_form(self) -> Optional[QWidget]:
         """TODO"""

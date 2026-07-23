@@ -30,12 +30,23 @@ from kafman.core.schema.avro.field.map_field import MapField
 from kafman.core.schema.avro.field.union_field import UnionField
 from kafman.core.schema.json.json_schema import JsonSchema
 from kafman.core.schema.schema_registry import SchemaRegistry
+from kafman.core.schema.widget_utils import WidgetUtils
 from kafman.core.statistics_worker import StatisticsWorker
 from kafman.views.dialogs.settings_dialog import SettingsDialog
 from kafman.views.main_qt_view import MainQtView
 from kafman.views.promotions.form_area import FormArea
+from kafman.views.promotions.form_pane import FormPane
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontInfo
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QLabel,
+    QSpinBox,
+    QStyle,
+    QStyleOptionSpinBox,
+    QWidget,
+)
 
 SCHEMAS = Path(__file__).parents[1] / "main" / "kafman" / "resources" / "schemas"
 
@@ -183,6 +194,70 @@ class RuntimeRegressionTest(unittest.TestCase):
             self.assertTrue(font_info.fixedPitch())
         finally:
             self.app.setFont(original_font)
+
+    def test_dynamic_form_uses_one_scroll_area_and_expanding_field_column(
+        self,
+    ) -> None:
+        stack = HStackedWidget()
+        pane = FormPane(stack, None, "LayoutTest")
+        stack.addWidget(pane)
+        self.assertEqual([], pane.findChildren(FormArea))
+        self.assertEqual(1, pane.grid().columnStretch(FormPane.FIELD_COLUMN))
+        self.assertGreaterEqual(pane.grid().verticalSpacing(), 8)
+
+        array_editor = WidgetUtils.create_editor("array", default=[])
+        pane.add_field("items", QLabel("Items"), QLabel("*"), array_editor, row=0)
+        label_alignment = (
+            pane.grid().itemAtPosition(0, FormPane.LABEL_COLUMN).alignment()
+        )
+        self.assertTrue(bool(label_alignment & Qt.AlignmentFlag.AlignTop))
+        self.assertLessEqual(array_editor.maximumHeight(), 140)
+
+    def test_boolean_editor_has_a_visible_true_false_control(self) -> None:
+        editor = WidgetUtils.create_editor("boolean", default=False, nullable=True)
+        checkbox = editor.input_widget
+        self.assertIsInstance(checkbox, QCheckBox)
+        assert isinstance(checkbox, QCheckBox)
+        self.assertEqual("True", checkbox.text())
+        self.assertFalse(checkbox.isChecked())
+
+    def test_required_boolean_hides_redundant_value_selector(self) -> None:
+        editor = WidgetUtils.create_editor("boolean", default=False)
+        checkbox = editor.input_widget
+        self.assertIsInstance(checkbox, QCheckBox)
+        self.assertTrue(editor._mode.isHidden())
+        self.assertNotIn(
+            editor._mode,
+            [
+                editor.layout().itemAt(index).widget()
+                for index in range(editor.layout().count())
+            ],
+        )
+
+    def test_integer_editor_keeps_native_spin_controls_outside_text(self) -> None:
+        editor = WidgetUtils.create_editor("int", default=-2)
+        spin_box = editor.input_widget
+        self.assertIsInstance(spin_box, QSpinBox)
+        assert isinstance(spin_box, QSpinBox)
+        self.assertEqual(Qt.LayoutDirection.LeftToRight, spin_box.layoutDirection())
+        self.assertEqual("", spin_box.styleSheet())
+
+        spin_box.resize(400, spin_box.sizeHint().height())
+        option = QStyleOptionSpinBox()
+        spin_box.initStyleOption(option)
+        edit_rect = spin_box.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxEditField,
+            spin_box,
+        )
+        up_rect = spin_box.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxUp,
+            spin_box,
+        )
+        self.assertFalse(edit_rect.intersects(up_rect))
 
     def test_settings_dialog_parses_embedded_properties(self) -> None:
         current = {}
