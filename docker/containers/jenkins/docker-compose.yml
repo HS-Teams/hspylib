@@ -1,24 +1,33 @@
 services:
 
   jenkins:
-    image: jenkins/jenkins:lts
+    image: jenkins/jenkins:lts@sha256:a660310e39ade10631f774bacd5219de767dfd08947ea5c32a739b5e5bb382c1
     container_name: jenkins
     hostname: jenkins
-    restart: on-failure
+    restart: unless-stopped
+    mem_limit: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: [ "CMD-SHELL", "curl", "-o", '/dev/null', '-m', '3', "http://jenkins:8080/login" ]
+      test: [ "CMD", "curl", "-fsS", "--max-time", "3", "http://localhost:8080/login" ]
       timeout: 60s
       retries: 3
-    privileged: true
-    user: root
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - "9001:8080"
-      - "50003:50000"
+      - "127.0.0.1:9001:8080"
+      - "127.0.0.1:50003:50000"
     volumes:
-      - ./data/jenkins:/var/jenkins_home:rw
-      - /var/run/docker.sock:/var/run/docker.sock
+      - jenkins-data:/var/jenkins_home
     networks:
       - esnet
 
 networks:
   esnet:
+
+volumes:
+  jenkins-data:

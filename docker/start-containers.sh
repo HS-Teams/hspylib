@@ -10,7 +10,7 @@ CONTAINERS=(${1:-$(find . -maxdepth 1 ! -path . -type d | cut -c3-)})
 popd &> /dev/null || exit 1
 [[ "${#CONTAINERS[@]}" -eq 0 ]] && exit 0
 
-DOCKER_FLAGS=('--force-recreate' '--build' '--remove-orphans' '--detach')
+DOCKER_FLAGS=('--detach' '--wait' '--wait-timeout' '180')
 
 # @purpose: Start all docker-compose.yml
 # -param $1: if the execution is on an interactive console or not
@@ -31,27 +31,18 @@ startContainers() {
   echo ''
 
   for container in "${all[@]}"; do
-    status=$(getHealth "${container}")
-    if [[ "${status}" == "\"healthy\"" ]]; then
-      echo -e "${YELLOW}⠿ Container \"${container}\" is already up${NC}"
+    echo -e "${BLUE}⠿ Starting container ${container} ${NC}"
+    pushd "${CONTAINERS_DIR}/${container}" &>/dev/null || exit 1
+    if docker compose up "${DOCKER_FLAGS[@]}"; then
+      echo ''
     else
-      echo -e "${BLUE}⠿ Container ${container} is ${status:-down}"
-      echo -e "⠿ Starting container ${container} ${NC}"
-      pushd "${CONTAINERS_DIR}/${container}" &>/dev/null || exit 1
-      if docker compose up "${DOCKER_FLAGS[@]}"; then
-        echo ''
-      else
-        echo -e "${RED}⠿ Docker (docker compose up) command failed! ${NC}\n"
-      fi
+      echo -e "${RED}⠿ Docker (docker compose up) command failed! ${NC}\n"
       popd &>/dev/null || exit 1
+      return 1
     fi
+    popd &>/dev/null || exit 1
   done
 
-  # shellcheck disable=SC2207
-  all=($(docker ps --format '{{.Names}}'))
-  count=${#all[@]}
-  [[ "${count}" -gt 0 ]] && timeout $$ $((count * 120))
-  waitHealthy "${all[@]}"
 }
 
 echo ''

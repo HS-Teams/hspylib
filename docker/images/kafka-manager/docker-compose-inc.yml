@@ -1,16 +1,21 @@
-version: '3.9'
-
 services:
   kafka-manager:
     container_name: kafka-manager
-    image: yorevs/hhs-kafka-manager:latest
+    image: hlebalbau/kafka-manager:latest@sha256:1138c4fe077e873e10c614c3e54ad111382d1cbc3aa829cc45ad5d98291ce56f
     hostname: kafka_manager
-    restart: on-failure
+    restart: unless-stopped
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fail -o /dev/null -s -w \"%{http_code}\n\" http://localhost:9000" ]
+      test: [ "CMD-SHELL", "curl -f -o /dev/null -s -w \"%{http_code}\n\" http://localhost:9000" ]
       interval: 10s
       timeout: 60s
       retries: 3
+      start_period: 60s
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -18,9 +23,9 @@ services:
         condition: service_healthy
     command: -Dconfig.file=conf/application.conf -Dapplication.home=bin/kafkamanager
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     environment:
-      ZK_HOSTS: zookeeper
-      APPLICATION_SECRET: letmein
+      ZK_HOSTS: zookeeper:2181
+      APPLICATION_SECRET: ${APPLICATION_SECRET:?Set APPLICATION_SECRET in .env}
     networks:
       - esnet

@@ -1,22 +1,27 @@
 services:
   mysql:
-    image: mysql/mysql-server:latest
+    image: mysql/mysql-server:latest@sha256:d6c8301b7834c5b9c2b733b10b7e630f441af7bc917c74dba379f24eeeb6a313
     container_name: mysql
     hostname: mysql
-    restart: on-failure
+    restart: unless-stopped
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
       timeout: 60s
       retries: 3
+      start_period: 60s
     environment:
       MYSQL_DATABASE: hspylib
       MYSQL_USER: mysql
-      MYSQL_PASSWORD: mysql
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
     ports:
-      - "3306:3306"
-    expose:
-      - 3306
+      - "127.0.0.1:3306:3306"
     volumes:
       - ./data/mysql:/var/lib/mysql:rw
     networks:

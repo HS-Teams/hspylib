@@ -1,23 +1,31 @@
 services:
   redis-server:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     container_name: redis-server
     restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
-    command: >
-      redis-server
-      --requirepass password
-      --save 20 1
-      --loglevel warning
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save 20 1 --loglevel warning
 
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a password ping | grep PONG"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 60s
 
     volumes:
       - ./data/redis:/data

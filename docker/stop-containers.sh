@@ -32,10 +32,9 @@ stopContainers() {
     status=$(getStatus "${container}")
     if [[ "${status}" == "\"running\"" ]]; then
       echo -en "${BLUE}⠿ Stopping container ${container} ${NC}"
-      id=$(docker ps -aqf "name=${container}")
-      if docker stop "${id}" &>/dev/null; then
+      if docker stop "${container}" &>/dev/null; then
         assertStatus "${container}" "exited"
-        if docker rm "${id}" &>/dev/null; then echo -e "${GREEN}⠿ OK ⠿"; else echo "${RED}⠿ FAILED ⠿"; fi
+        echo -e "${GREEN}⠿ OK ⠿"
       else
         echo -e ' ⠿ FAILED ⠿'
       fi

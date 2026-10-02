@@ -1,5 +1,3 @@
-FROM confluentinc/cp-zookeeper:5.4.0
+FROM confluentinc/cp-zookeeper:7.9.8
 
-MAINTAINER yorevs
-
-RUN apt-get update
+LABEL maintainer="yorevs"

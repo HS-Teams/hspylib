@@ -1,9 +1,15 @@
 services:
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:latest@sha256:a70238909232f61ebcfdc4617200cb32872be481a51d8c65cc56c4f261ba66ca
     container_name: dozzle
     hostname: dozzle
     restart: unless-stopped
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${DOZZLE_BIND_ADDRESS:-127.0.0.1}:${DOZZLE_PORT:-8188}:8080"
     healthcheck:

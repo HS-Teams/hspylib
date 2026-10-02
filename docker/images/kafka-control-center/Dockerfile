@@ -1,5 +1,3 @@
-FROM hlebalbau/kafka-manager:latest
+FROM confluentinc/cp-enterprise-control-center:7.9.8
 
-MAINTAINER yorevs
-
-RUN apt-get update && apt-get install -y curl
+LABEL maintainer="yorevs"

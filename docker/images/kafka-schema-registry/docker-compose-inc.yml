@@ -1,23 +1,28 @@
-version: '3.9'
-
 services:
   kafka-schema-registry:
     container_name: kafka-schema-registry
-    image: yorevs/hhs-schema-registry:latest
+    image: confluentinc/cp-schema-registry:7.9.8
     hostname: schema_registry
-    restart: on-failure
+    restart: unless-stopped
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fail -o /dev/null -s -w \"%{http_code}\n\" http://127.0.0.1:8081/subjects" ]
+      test: [ "CMD-SHELL", "curl -f -o /dev/null -s -w \"%{http_code}\n\" http://127.0.0.1:8081/subjects" ]
       interval: 10s
       timeout: 60s
       retries: 3
+      start_period: 60s
     depends_on:
       zookeeper:
         condition: service_healthy
       kafka-broker:
         condition: service_healthy
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka_broker:9092"
       SCHEMA_REGISTRY_ZOOKEEPER_CONNECT: "zookeeper:2181"
