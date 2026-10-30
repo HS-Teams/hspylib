@@ -27,6 +27,9 @@ class VaultConfig(DBConfiguration):
         self._vault_file = self["hhs.vault.file"]
         VaultConfig.INSTANCE = self if VaultConfig.INSTANCE is None else VaultConfig.INSTANCE
 
+    def __str__(self) -> str:
+        return "VaultConfig(values redacted)"
+
     @property
     def vault_user(self) -> str:
         """Return the vault user"""
@@ -39,7 +42,7 @@ class VaultConfig(DBConfiguration):
 
     @property
     def database(self) -> str:
-        return self.unlocked_vault_file
+        raise RuntimeError("Vault database is available only within an authenticated session")
 
     @property
     def vault_file(self) -> str:

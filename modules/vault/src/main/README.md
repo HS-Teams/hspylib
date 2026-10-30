@@ -305,6 +305,86 @@ This project is already supported by:
 
 Thank you <3 !!
 
+## Vault security and migration
+
+Vault now writes an authenticated, versioned format using Fernet with Argon2id
+(64 MiB, 3 passes, 4 lanes) and a random 16-byte salt. Each vault has a random
+entry-encryption key, stored only inside the master-password-encrypted payload.
+The old fixed entry key and PBKDF2 settings are used only to read existing vaults.
+
+### Before the first run
+
+- Keep a verified backup and stop all older vault processes. Old versions do not
+  understand the new format or honor its lock file. Do not run them concurrently.
+- Keep the vault in a directory owned by your account and not writable by other
+  users (prefer mode `0700`). Vault, backup and lock files must be regular files
+  owned by you; symlinks and hard links are rejected.
+- Remove `hhs.vault.passphrase` from configuration and `HHS_VAULT_PASSPHRASE`
+  from the environment. Base64 passwords are no longer accepted. Enter the
+  existing master passphrase interactively; keep `hhs.vault.user` unchanged.
+- If you previously customized `VAULT_HASHCODE`, supply that same value for the
+  first migration. It has no effect on new-format encryption.
+
+### Migration behavior
+
+The first successfully completed command migrates an existing vault automatically.
+Every legacy entry is decrypted and re-encrypted with the new random key. The
+converted database and encrypted output are verified before atomic replacement.
+An exact encrypted copy of the original is retained as `<vault>.legacy.bak`, with
+mode `0600`. A different pre-existing backup is never overwritten. Wrong passwords,
+invalid records, interrupted operations and failures before replacement leave the
+original vault unchanged. A crash at replacement leaves either the old file or a
+complete new encrypted file; a directory-sync failure after replacement can report
+an error even though the new file has already been installed.
+
+For rollback, stop all vault processes and restore the verified `.legacy.bak` to
+an unused path with the original username, passphrase and custom legacy key (if
+any). It contains the pre-migration state, not subsequent changes. Keep it protected;
+it retains the old format's weaker KDF. Old `.unlocked` or `.unlocked-encoded` files
+cause a refusal to open: preserve them for manual recovery rather than deleting
+potentially newer data or silently restoring a stale backup.
+
+### Password input and storage
+
+`vault add NAME [HINT]` and `vault upd NAME [HINT]` now collect the entry password
+through the protected form. Positional password arguments are rejected without
+being echoed. Master passwords are prompted on each operation; this version does
+not read or populate the previous keyring cache. Existing cache entries can be
+removed from the OS credential manager (`VAULT_KEY_SERVICE`) after migration.
+New master passphrases require at least 12 characters; existing ones remain valid.
+Input is now exact, including whitespace. The old interactive CLI discarded trailing
+whitespace, so enter the effective old passphrase without that discarded suffix.
+Passphrases previously supplied through Base64 configuration may contain significant
+whitespace; enter those characters exactly.
+
+The last valid vault stays encrypted on disk throughout each operation. SQLite
+works in a randomly named private `0700` temporary directory with a `0600` database;
+entry passwords are individually encrypted and temporary SQLite storage stays in
+memory. Normal completion and exceptions remove the work directory, and failures
+roll back the operation. Forced termination can leave a private work directory,
+particularly during legacy migration. This is not a secure-erasure guarantee:
+use OS full-disk encryption to protect residual blocks and swap. A process running
+as your OS user or administrator can still inspect memory or clipboard contents.
+
+Raw argument/configuration dumps, SQL and entry representations are omitted or
+redacted in vault logs. Historical logs and shell histories are not rewritten;
+review them and rotate credentials if they were exposed. `get NAME true` still
+explicitly displays a password, while `get NAME` copies it to the system clipboard.
+
+### Security regression tests
+
+With the module dependencies and pytest installed, run from the repository root:
+
+```bash
+python -m pytest modules/vault/src/test/test_vault_security.py modules/vault/src/test/test_vault_cli_security.py
+```
+
+Tests use synthetic data and cover migration, preservation on failures, independent
+keys, authentication, tampering, restrictive permissions, links, process locking,
+parameterized queries and secret-free logs. Web controls (CSRF, cookies, CSP, CORS,
+JWT and HTTP rate limiting) do not apply to this local CLI; there are no LLM tools
+or upload endpoints.
+
 ## Known Issues
 
 - [In-Progress] We are aware that there is a problems when using python@3.12 and we are already working on a fix.

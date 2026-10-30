@@ -12,8 +12,6 @@
 
    Copyright·(c)·2024,·HSPyLib
 """
-from datasource.crud_service import CrudService
-from hspylib.core.namespace import Namespace
 from textwrap import dedent
 from typing import List, Optional
 from vault.core.vault_config import VaultConfig
@@ -21,11 +19,20 @@ from vault.core.vault_repository import VaultRepository
 from vault.domain.vault_entry import VaultEntry
 
 
-class VaultService(CrudService[VaultRepository, VaultEntry]):
+class VaultService:
     """Provides a CRUD service for the Vault application."""
 
     def __init__(self, vault_config: VaultConfig):
-        super().__init__(VaultRepository(vault_config))
+        self.repository = VaultRepository(vault_config)
+
+    def list(self) -> List[VaultEntry]:
+        return self.repository.find_all()
+
+    def save(self, entry: VaultEntry) -> None:
+        self.repository.save(entry)
+
+    def remove(self, entry: VaultEntry) -> None:
+        self.repository.delete(entry)
 
     def get_by_key(self, key: str) -> Optional[VaultEntry]:
         """Get a vault entry using the specified key.
@@ -43,8 +50,7 @@ class VaultService(CrudService[VaultRepository, VaultEntry]):
         """Return a list of vault entries that matches the specified filters.
         :param filter_expr: the expression
         """
-        filters = " or ".join([f"key like '%{f}%'" for f in filter_expr])
-        return self.list(Namespace("Filters", by_key_like=filters), ["key", "modified"])
+        return self.repository.find_all(filter_expr)
 
     def create_vault_db(self) -> None:
         """Create a brand new vault database file."""

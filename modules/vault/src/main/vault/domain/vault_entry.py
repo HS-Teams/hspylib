@@ -93,7 +93,7 @@ class VaultEntry(CrudEntity):
         self.modified = modified or now()
 
     def __str__(self) -> str:
-        return str(self.as_dict())
+        return "VaultEntry(values redacted)"
 
     def __repr__(self) -> str:
         return str(self)

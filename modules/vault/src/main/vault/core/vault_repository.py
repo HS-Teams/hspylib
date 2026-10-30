@@ -12,44 +12,93 @@
 
    Copyright·(c)·2024,·HSPyLib
 """
+import contextlib
+import sqlite3
+from pathlib import Path
+from typing import Optional
+
 from datasource.identity import Identity
-from datasource.sqlite.sqlite_repository import SQLiteRepository
-from typing import Optional, Set
-from vault.core.vault_config import VaultConfig
 from vault.domain.vault_entry import VaultEntry
+from vault.exception.exceptions import VaultSecurityException
 
 
-class VaultRepository(SQLiteRepository[VaultEntry, VaultConfig]):
-    """Provide CRUD operations for the Vault application."""
+class VaultRepository:
+    """Session-bound SQLite access: private database, bound values, no SQL logging."""
+
+    COLUMNS = ("uuid", "key", "name", "password", "hint", "modified")
+
+    def __init__(self, vault_config):
+        self._database = None
+
+    def bind(self, database: str | None) -> None:
+        self._database = database
 
     @property
     def database(self) -> str:
-        return self._config.database
+        if self._database is None:
+            raise VaultSecurityException("Vault is locked")
+        return self._database
 
-    def find_by_key(self, key: str, fields: Set[str] = None) -> Optional[VaultEntry]:
-        fields = "*" if not fields else ", ".join(fields)
-        sql = f"SELECT {fields} FROM {self.table_name()} WHERE key = ? ORDER BY key"
-        result = next((e for e in self.execute(sql, key=key)[1]), None)
+    def execute(self, sql_statement: str, **kwargs):
+        try:
+            with contextlib.closing(sqlite3.connect(self.database)) as conn:
+                conn.execute("PRAGMA trusted_schema=OFF")
+                conn.execute("PRAGMA secure_delete=ON")
+                conn.execute("PRAGMA temp_store=MEMORY")
+                conn.execute("PRAGMA journal_mode=MEMORY")
+                with conn:
+                    cursor = conn.execute(sql_statement, tuple(kwargs.values()))
+                    return cursor.rowcount, cursor.fetchall()
+        except sqlite3.Error:
+            raise VaultSecurityException("Vault database operation failed") from None
 
-        return self.to_entity_type(result) if result else None
+    def validate(self) -> None:
+        schema = self.execute("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'")[1]
+        if schema != [("table", "VAULT_ENTRIES")]:
+            raise VaultSecurityException("Unexpected vault database schema")
+        columns = self.execute("PRAGMA table_info(VAULT_ENTRIES)")[1]
+        if tuple(row[1] for row in columns) != self.COLUMNS:
+            raise VaultSecurityException("Unexpected vault database columns")
+        if self.execute("PRAGMA quick_check")[1] != [("ok",)]:
+            raise VaultSecurityException("Vault database integrity check failed")
+        rows = self.execute("SELECT uuid, key, name, password, hint, modified FROM VAULT_ENTRIES")[1]
+        if any(not all(isinstance(value, str) for value in row) for row in rows):
+            raise VaultSecurityException("Invalid vault entry")
+        if len({row[0] for row in rows}) != len(rows) or len({row[1] for row in rows}) != len(rows):
+            raise VaultSecurityException("Duplicate vault entries")
+
+    def snapshot(self) -> bytes:
+        self.validate()
+        return Path(self.database).read_bytes()
+
+    def find_by_key(self, key: str) -> Optional[VaultEntry]:
+        rows = self.execute("SELECT * FROM VAULT_ENTRIES WHERE key = ?", key=key)[1]
+        return self.to_entity_type(rows[0]) if rows else None
 
     def exists(self, key: str) -> bool:
-        sql = f"SELECT rowid FROM {self.table_name()} WHERE key = ?"
-        result = next((e for e in self.execute(sql, key=key)[1]), None)
+        return bool(self.execute("SELECT 1 FROM VAULT_ENTRIES WHERE key = ?", key=key)[1])
 
-        return bool(result)
+    def find_all(self, filters=None):
+        filters = filters or []
+        clauses = " OR ".join("key LIKE ?" for _ in filters)
+        sql = "SELECT * FROM VAULT_ENTRIES"
+        if clauses:
+            sql += " WHERE " + clauses
+        sql += " ORDER BY key, modified"
+        args = {str(i): f"%{value}%" for i, value in enumerate(filters)}
+        return [self.to_entity_type(row) for row in self.execute(sql, **args)[1]]
 
-    def table_name(self) -> str:
-        return "VAULT_ENTRIES"
-
-    def to_entity_type(self, entity_dict: dict | tuple) -> VaultEntry:
-        if isinstance(entity_dict, dict):
-            return VaultEntry(Identity(VaultEntry.VaultId(entity_dict["uuid"])), **entity_dict)
-        return VaultEntry(
-            Identity(VaultEntry.VaultId(entity_dict[0])),
-            entity_dict[1],
-            entity_dict[2],
-            entity_dict[3],
-            entity_dict[4],
-            entity_dict[5],
+    def save(self, entity: VaultEntry) -> None:
+        self.execute(
+            "INSERT INTO VAULT_ENTRIES (uuid, key, name, password, hint, modified) VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(uuid) DO UPDATE SET key=excluded.key, name=excluded.name, "
+            "password=excluded.password, hint=excluded.hint, modified=excluded.modified",
+            uuid=entity.identity.values[0], key=entity.key, name=entity.name,
+            password=entity.password, hint=entity.hint, modified=entity.modified,
         )
+
+    def delete(self, entity: VaultEntry) -> None:
+        self.execute("DELETE FROM VAULT_ENTRIES WHERE uuid = ?", uuid=entity.identity.values[0])
+
+    def to_entity_type(self, row: tuple) -> VaultEntry:
+        return VaultEntry(Identity(VaultEntry.VaultId(row[0])), *row[1:])

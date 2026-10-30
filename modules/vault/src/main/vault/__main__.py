@@ -22,16 +22,19 @@ from hspylib.modules.application.version import Version
 from textwrap import dedent
 from vault.__classpath__ import classpath
 from vault.core.vault import Vault
+from vault.core.vault_argument_parser import VaultArgumentParser
 from vault.core.vault_config import VaultConfig
 from vault.exception.exceptions import VaultOpenError
 
 import logging as log
-import os
 import sys
 
 
 class Main(TUIApplication):
     """HsPyLib Vault - Manage your secrets"""
+
+    CONFIG_CLASS = VaultConfig
+    PARSER_CLASS = VaultArgumentParser
 
     # The welcome message
     DESCRIPTION = classpath.get_source("welcome.txt").read_text(encoding=Charset.UTF_8.val)
@@ -59,13 +62,12 @@ class Main(TUIApplication):
             .argument('add', 'add a NEW UNIQUE vault entry') \
                 .add_parameter('name', 'the name of the vault entry which identifies it') \
                 .add_parameter('hint', 'applicable hints related to that vault entry', nargs='?') \
-                .add_parameter('password', 'the password of the entry. If not provided, it will be prompted',
-                               nargs='?') \
             .argument('upd', 'update an existing vault entry') \
                 .add_parameter('name', 'the name of the vault entry which identifies it') \
-                .add_parameter('hint', 'applicable hints related to that vault entry', nargs='?') \
-                .add_parameter('password', 'the password of the entry. If not provided, it will be prompted',
-                               nargs='?')  # fmt: on
+                .add_parameter('hint', 'applicable hints related to that vault entry', nargs='?')  # fmt: on
+
+    def _log_arguments(self) -> None:
+        log.debug("Vault arguments parsed (values redacted)")
 
     def _main(self, *params, **kwargs) -> ExitStatus:
         """Run the application with the command line arguments"""
@@ -89,14 +91,11 @@ class Main(TUIApplication):
 
     def _cleanup(self) -> None:
         """Close and lock the vault"""
-        self.vault.close()
-        unlocked = self.vault.configs.unlocked_vault_file
-        if os.path.exists(unlocked):
-            os.remove(unlocked)
+        if hasattr(self, "vault"):
+            self.vault.discard()
 
     def _abort(self, signum=0, frame=None) -> None:
-        """Securely abort the execution of vault"""
-        self._cleanup()
+        """Unwind the active operation before releasing its lock and descriptors."""
         self.exit(signum, frame)
 
     def _exec_application(self) -> ExitStatus:
@@ -106,13 +105,13 @@ class Main(TUIApplication):
             if not unlocked:
                 raise VaultOpenError("Unable to open/unlock vault")
             if op == "add":
-                self.vault.add(self.get_arg("name"), self.get_arg("hint"), self.get_arg("password"))
+                self.vault.add(self.get_arg("name"), self.get_arg("hint"), None)
             elif op == "get":
                 self.vault.get(self.get_arg("name"), self._show_passwd())
             elif op == "del":
                 self.vault.remove(self.get_arg("name"))
             elif op == "upd":
-                self.vault.update(self.get_arg("name"), self.get_arg("hint"), self.get_arg("password"))
+                self.vault.update(self.get_arg("name"), self.get_arg("hint"), None)
             elif op == "list":
                 self.vault.list(self.get_arg("filter"))
             else:

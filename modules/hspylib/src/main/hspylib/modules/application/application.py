@@ -43,6 +43,8 @@ class Application(metaclass=AbstractSingleton):
     """HsPyLib application framework. This is the base class for the HsPyLib applications."""
 
     INSTANCE = None
+    CONFIG_CLASS = AppConfigs
+    PARSER_CLASS = HSArgumentParser
 
     @staticmethod
     def _help_formatter(prog) -> argparse.HelpFormatter:
@@ -87,7 +89,7 @@ class Application(metaclass=AbstractSingleton):
         self._app_name = name
         self._app_version = version
         self._app_description = description
-        self._arg_parser = HSArgumentParser(
+        self._arg_parser = self.PARSER_CLASS(
             exit_on_error=False,
             prog=name,
             allow_abbrev=False,
@@ -104,9 +106,9 @@ class Application(metaclass=AbstractSingleton):
 
         # Initialize application configs
         if os.path.exists(f"{resource_dir}"):
-            self.configs = AppConfigs(resource_dir=resource_dir)
+            self.configs = self.CONFIG_CLASS(resource_dir=resource_dir)
         elif not resource_dir and os.path.exists(f"{self._root_dir}/resources/application.properties"):
-            self.configs = AppConfigs(resource_dir=f"{self._root_dir}/resources")
+            self.configs = self.CONFIG_CLASS(resource_dir=f"{self._root_dir}/resources")
         else:
             log.debug('Resource dir "%s" not found. AppConfigs will not be available!', resource_dir or "<none>")
 
@@ -119,7 +121,7 @@ class Application(metaclass=AbstractSingleton):
             atexit.register(self._cleanup)
             self._setup_arguments()
             self._args = self._arg_parser.parse_args(*params)
-            log.debug("Command line arguments: %s", str(self._args))
+            self._log_arguments()
             self._exit_code = self._main(*params, **kwargs)
         except argparse.ArgumentError as err:
             log.error("Application failed to execute %s => %s", today, err)
@@ -140,6 +142,10 @@ class Application(metaclass=AbstractSingleton):
                 self._exit_code = ExitStatus.of(code)
             if not no_exit:
                 Application.exit(self._exit_code.val)
+
+    def _log_arguments(self) -> None:
+        """Allow applications handling secrets to suppress argument values."""
+        log.debug("Command line arguments: %s", str(self._args))
 
     def usage(self, exit_code: ExitStatus = ExitStatus.SUCCESS, no_exit: bool = False) -> None:
         """Display the usage message and exit with the specified http_code ( or zero as default )
