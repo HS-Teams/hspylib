@@ -1,11 +1,14 @@
 # _*_ coding: utf-8 _*_
 #
-# hspylib-vault v0.9.137
+# hspylib-vault v0.10.0
 #
 # Package: test
 """Package initialization."""
 
 __all__ = [
-    'test_main'
+    'conftest', 
+    'test_main', 
+    'test_vault_cli_security', 
+    'test_vault_security'
 ]
-__version__ = '0.9.137'
+__version__ = '0.10.0'

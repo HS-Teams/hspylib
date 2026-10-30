@@ -42,7 +42,8 @@ setuptools.setup(
     },
     license="MIT",
     license_files="LICENSE.md",
-    packages=setuptools.find_namespace_packages(),
+    packages=setuptools.find_namespace_packages(include=["datasource", "datasource.*"]),
+    package_dir={"": "."},
     include_package_data=True,
     classifiers=[
         "License :: OSI Approved :: MIT License",

@@ -1,0 +1,62 @@
+/* Install the workspace as one resolver transaction, keeping local dependencies editable. */
+
+ext.localModuleSources = {
+  rootProject.subprojects.sort { it.path }.collect { new File(it.projectDir, 'src/main') }
+    .findAll { new File(it, 'setup.py').isFile() }
+}
+
+ext.developInstallCommand = { String python ->
+  def sources = rootProject.localModuleSources()
+  if (sources.isEmpty()) {
+    throw new GradleException('No local Python modules found')
+  }
+  [python, '-m', 'pip', 'install', '--no-build-isolation'] +
+    sources.collectMany { ['--editable', it.absolutePath] }
+}
+
+ext.hasLocalEditables = { String python ->
+  def output = new ByteArrayOutputStream()
+  exec {
+    commandLine([python, '-c', '''
+import importlib.metadata
+import json
+import pathlib
+import sys
+
+sources = {pathlib.Path(path).resolve().as_uri() for path in sys.argv[1:]}
+for distribution in importlib.metadata.distributions():
+    data = json.loads(distribution.read_text('direct_url.json') or '{}')
+    if data.get('dir_info', {}).get('editable') and data.get('url') in sources:
+        print('true')
+        break
+else:
+    print('false')
+'''] + rootProject.localModuleSources().collect { it.absolutePath })
+    standardOutput = output
+  }
+  Boolean.parseBoolean(output.toString().trim())
+}
+
+tasks.register('installDevelop') {
+  group = 'Install'
+  description = 'Install every local module as editable in the selected virtual environment'
+  dependsOn { rootProject.subprojects.collect { it.tasks.named('syncRequirements') } }
+  doLast {
+    def interpreters = rootProject.subprojects.collect { it.python }.unique()
+    if (interpreters.size() != 1) {
+      throw new GradleException('All editable modules must use the same Python interpreter')
+    }
+    def python = interpreters.first()
+    exec {
+      commandLine python, '-c', '''
+import sys
+if sys.prefix == sys.base_prefix:
+    sys.exit('Develop mode requires a virtual environment. Activate it or set -PpythonExecutable=/path/to/venv/bin/python')
+print('Develop interpreter: ' + sys.executable)
+'''
+    }
+    exec {
+      commandLine rootProject.developInstallCommand(python)
+    }
+  }
+}

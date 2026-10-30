@@ -112,13 +112,38 @@ task publish(type: Task) {
   def un = project.ext.pypiUsername
   def pw = project.ext.pypiPassword
   doLast {
+    // patchVersion updates the file after Gradle has loaded app_version.
+    def releaseVersion = new File(project.versionFile.toString()).text.trim()
+    if (!(releaseVersion ==~ /\d+\.\d+\.\d+/)) {
+      throw new GradleException("Invalid release version: ${releaseVersion}")
+    }
+    def releaseTag = "${project.name}-v${releaseVersion}"
+    def tagRef = "refs/tags/${releaseTag}"
+    def localTag = exec {
+      commandLine 'git', 'show-ref', '--verify', '--quiet', tagRef
+      ignoreExitValue = true
+    }
+    if (localTag.exitValue == 0) {
+      throw new GradleException("Release tag already exists locally: ${releaseTag}. Upload cancelled.")
+    }
+    if (localTag.exitValue != 1) {
+      throw new GradleException("Unable to check local release tag: ${releaseTag}")
+    }
+    def remoteTags = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'ls-remote', '--tags', 'origin', tagRef
+      standardOutput = remoteTags
+    }
+    if (!remoteTags.toString().trim().isEmpty()) {
+      throw new GradleException("Release tag already exists on origin: ${releaseTag}. Upload cancelled.")
+    }
     fileTree("$sourceRoot").matching {
         include "**/setup.py"
       }.each { File module ->
         def moduleDir = dirName(module)
         def distDir = "${moduleDir}/dist"
         println "--- ${project.name} details ---"
-        println "|-version: ${project.ext.app_version}"
+        println "|-version: ${releaseVersion}"
         println "|-setup: ${module}"
         println "|-url: ${url}"
         println "|-user: ${un}"
@@ -136,10 +161,10 @@ task publish(type: Task) {
         }
     }
     exec {
-      commandLine 'git', 'tag', '-a', "v${app_version}", '-m', "New PyPi version v${app_version}"
+      commandLine 'git', 'tag', '-a', releaseTag, '-m', "New PyPi release ${releaseTag}"
     }
     exec {
-      commandLine 'git', 'push', 'origin', "v${app_version}"
+      commandLine 'git', 'push', 'origin', tagRef
     }
   }
 }

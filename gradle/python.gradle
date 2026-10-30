@@ -197,25 +197,8 @@ task syncPythonPackages(type: Task) {
 /* Install module in editable mode (i.e. setuptools 'develop mode') */
 task installModule(type: Task) {
   group = 'Install'
-  description = "Install module in editable mode (i.e. setuptools 'develop mode')"
-  dependsOn syncRequirements
-  dependsOn installPackages
-  doLast {
-    fileTree("$sourceRoot").matching {
-      include "**/setup.py"
-    }.each { File module ->
-        def moduleDir = dirName(module)
-        def args = [
-          project.python, '-m', 'pip', 'install', '-e', "${sourceRoot}/main",
-          '--break-system-packages'
-        ]
-        println "Install [Editable] module ${project.name} : ${moduleDir} -> ${module.path}"
-        exec {
-          workingDir "$moduleDir"
-          commandLine args.flatten()
-        }
-      }
-  }
+  description = "Install all local modules together in editable mode"
+  dependsOn rootProject.tasks.named('installDevelop')
 }
 
 /* Installs the python module into the system */

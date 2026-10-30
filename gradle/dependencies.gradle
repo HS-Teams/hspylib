@@ -8,6 +8,18 @@
 import org.gradle.internal.os.OperatingSystem;
 
 String detectPython() {
+  def explicitPython = findProperty('pythonExecutable') ?: System.getenv('PYTHON_EXECUTABLE')
+  def activeVenv = System.getenv('VIRTUAL_ENV')
+  def selectedPython = explicitPython ?: (activeVenv ? "${activeVenv}/bin/python" : null)
+  if (selectedPython) {
+    def executable = rootProject.file(selectedPython)
+    if (!executable.isFile() || !executable.canExecute()) {
+      throw new GradleException("Python executable is unavailable: ${executable}")
+    }
+    // Do not resolve symlinks: the venv executable must retain its environment.
+    return executable.absolutePath
+  }
+
   def pythonHome = System.getenv('PYTHON_HOME') ?: null
   if (pythonHome != null) {
       return pythonHome + "/${project.ext.python_ver}"
@@ -79,10 +91,10 @@ String detectSpace() {
 
   def output = new ByteArrayOutputStream()
   exec {
-    commandLine 'sh', '-c', "${project.ext.python} -c \"from sys import prefix, base_prefix; print(prefix != base_prefix);\""
+    commandLine project.ext.python, '-c', 'from sys import prefix, base_prefix; print(prefix != base_prefix)'
     standardOutput = output
   }
-  def is_venv = Boolean.parseBoolean(output.toString())
+  def is_venv = Boolean.parseBoolean(output.toString().trim())
   println "> Build is" + (is_venv ? ' ' : ' NOT ') + "running under a virtual environment (venv)."
 
   return is_venv ? '--global' : '--user'
@@ -184,7 +196,18 @@ task installPackages(type: Task) {
   group = 'Dependencies'
   description = 'Install all required python packages'
   dependsOn syncRequirements
+  dependsOn {
+    rootProject.hasLocalEditables(project.python) ?
+      rootProject.subprojects.collect { it.tasks.named('syncRequirements') } : []
+  }
   doLast {
+    if (rootProject.hasLocalEditables(project.python)) {
+      println "Preserving local editable modules using ${project.python}"
+      exec {
+        commandLine rootProject.developInstallCommand(project.python)
+      }
+      return
+    }
     def req_file = new File("${project.ext.sourceRoot}/main/requirements.txt")
     println "\nInstalling \"${project.name}\" dependencies using ${project.python}"
     println "Requirements file: \n\t" + req_file

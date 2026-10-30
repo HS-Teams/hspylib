@@ -41,7 +41,8 @@ setuptools.setup(
     project_urls={"GitHub": "https://github.com/yorevs/hspylib", "PyPi": "https://pypi.org/project/hspylib-hqt/"},
     license="MIT",
     license_files="LICENSE.md",
-    packages=setuptools.find_namespace_packages(),
+    packages=setuptools.find_namespace_packages(include=["hqt", "hqt.*"]),
+    package_dir={"": "."},
     include_package_data=True,
     classifiers=[
         "License :: OSI Approved :: MIT License",
