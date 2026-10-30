@@ -1,6 +1,6 @@
 # _*_ coding: utf-8 _*_
 #
-# hspylib-kafman v0.9.155
+# hspylib-kafman v0.9.156
 #
 # Package: main.kafman.views
 """Package initialization."""
@@ -11,4 +11,4 @@ __all__ = [
     'main_qt_view', 
     'promotions'
 ]
-__version__ = '0.9.155'
+__version__ = '0.9.156'
