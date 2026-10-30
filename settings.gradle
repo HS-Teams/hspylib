@@ -1,3 +1,7 @@
+pluginManagement {
+  includeBuild(providers.gradleProperty('pyGradleDir').getOrElse('../py-gradle'))
+}
+
 rootProject.name = 'HsPyLib'
 
 // Read all directories from modules and assume it's a gradle module

@@ -40,7 +40,7 @@ class DevelopInstallTest(unittest.TestCase):
                 self.assertIn(str(source), paths)
 
     def test_develop_alias_installs_workspace_once_without_dependency_upgrade(self):
-        result = self.gradle(':vault:installModule', ':hqt:installModule', '--dry-run',
+        result = self.gradle('installDevelop', '--dry-run',
                              '-PpythonExecutable=' + sys.executable,
                              VIRTUAL_ENV='/nonexistent/venv')
         self.assertEqual(0, result.returncode, result.stdout)

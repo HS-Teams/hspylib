@@ -228,6 +228,18 @@ if __name__ == "__main__":
 
 ## Installation
 
+### Local development with Gradle
+
+The eight modules use the `io.github.hs-teams.pygradle` plugin from the sibling
+`../py-gradle` checkout. Use `-PpyGradleDir=/path/to/py-gradle` to select another checkout.
+
+Activate a Python virtual environment, then run `./gradlew installDevelop` to install
+all local modules together as editables. To select the interpreter explicitly, use
+`./gradlew installDevelop -PpythonExec=/path/to/venv/bin/python`.
+
+`publish` now uses the plugin's Git workflow: it creates a tag, commits changes and
+pushes to the remote. It does not upload packages to PyPI.
+
 ### Requirements
 
 #### Python

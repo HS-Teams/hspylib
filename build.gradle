@@ -26,7 +26,7 @@ apply from: "${rootDir}/gradle/idea.gradle"
 
 /* Project extension properties */
 ext {
-  buildTools = "${buildTools}".split(",")
+  buildTools = "${buildTools}"
   buildToolsFile = new File("${project.projectDir}/buildTools.txt")
   modulesDir = "${project.projectDir}/modules/"
   gradleDir = "${project.projectDir}/gradle"
@@ -34,7 +34,11 @@ ext {
   startTime = System.currentTimeMillis()
 }
 
-apply from: "${gradleDir}/develop.gradle"
+tasks.register('installDevelop') {
+  group = 'Install'
+  description = 'Install all local modules as editable using py-gradle'
+  dependsOn ':clitt:installModule'
+}
 
 configurations {
     modules
@@ -77,35 +81,5 @@ task listModules(type: Task) {
         it.name, it.app_version, it.sourceRoot.replaceAll(modulesDir, '')
       ))
     }
-  }
-}
-
-/* Download and extract the yorevs/py-gradle project ZIP */
-tasks.register('pyGradleUpdate') {
-  group = 'pygradle'
-  description = 'Download and extract the py-gradle project ZIP'
-  doLast {
-    def outFile = "${gradleDir}/py-gradle.zip"
-    def url = "https://github.com/yorevs/py-gradle/archive/master.zip"
-    println "Downloading the py-gradle project"
-    println "  From: ${url}"
-    println "  Into: ${outFile}"
-    mkdir gradleDir
-    delete fileTree(gradleDir).matching {
-      include "**/*.gradle"
-    }
-    exec {
-      commandLine 'curl', '-L', '-o', "${outFile}", url
-    }
-    copy {
-      from zipTree("${outFile}")
-      into "${gradleDir}"
-    }
-    copy {
-      from "${gradleDir}/py-gradle-master/src/main/gradle"
-      into "${gradleDir}"
-      include '**/*.gradle'
-    }
-    delete "${gradleDir}/py-gradle-master", "${outFile}"
   }
 }
