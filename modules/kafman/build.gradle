@@ -10,7 +10,7 @@ idea {
       rootModuleType = 'PYTHON_MODULE'
     }
     sourceDirs += file('src/main')
-    testSourceDirs += file('src/test')
+    testSources.from(file('src/test'))
     excludeDirs += file('.idea')
     excludeDirs += file('.gradle')
     excludeDirs += file('.vscode')

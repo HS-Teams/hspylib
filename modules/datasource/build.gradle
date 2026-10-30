@@ -11,7 +11,7 @@ idea {
     }
     sourceDirs += file('src/main')
     sourceDirs += file('src/demo')
-    testSourceDirs += file('src/test')
+    testSources.from(file('src/test'))
     excludeDirs += file('.idea')
     excludeDirs += file('.gradle')
     excludeDirs += file('.vscode')

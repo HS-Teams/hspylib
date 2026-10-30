@@ -25,6 +25,10 @@ from hspylib.core.tools.text_tools import environ_name
 class TestPreferences(unittest.TestCase):
 
     def setUp(self):
+        environment = {key: value for key, value in os.environ.items() if not key.startswith("HHS_CLITT_")}
+        self.environment_patch = patch.dict(os.environ, environment, clear=True)
+        self.environment_patch.start()
+        self.addCleanup(self.environment_patch.stop)
         self.preferences = TUIPreferences()
         self.preferences._overrides.clear()
 
